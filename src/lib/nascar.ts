@@ -31,8 +31,10 @@ function extractWinnerFromComments(comments: unknown): string | undefined {
 
 // Transform raw API race data to our Race type (from race_list_basic.json)
 function transformRace(raw: Record<string, unknown>): Race {
-  // race_type_id: 1 = scheduled, 2 = qualifying/completed, 3 = race
-  const isComplete = Number(raw.race_type_id) >= 2 && Number(raw.actual_laps || 0) > 0;
+  // A race is complete if it has completed laps AND a winner
+  const hasCompletedLaps = Number(raw.actual_laps || 0) > 0;
+  const hasWinner = Number(raw.winner_driver_id || 0) > 0;
+  const isComplete = hasCompletedLaps && hasWinner;
   
   // Try to extract winner from race_comments
   const winner = extractWinnerFromComments(raw.race_comments);
