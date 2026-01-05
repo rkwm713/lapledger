@@ -277,6 +277,15 @@ export type Database = {
         Args: { _league_id: string; _user_id: string }
         Returns: boolean
       }
+      join_league_by_invite_code: {
+        Args: { _invite_code: string }
+        Returns: {
+          league_id: string
+          league_name: string
+          message: string
+          success: boolean
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

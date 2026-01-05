@@ -176,49 +176,29 @@ export default function Leagues() {
 
     setIsSubmitting(true);
 
-    // Find league by invite code
-    const { data: league, error: findError } = await supabase
-      .from('leagues')
-      .select('*')
-      .eq('invite_code', joinCode.toUpperCase().trim())
+    // Use the secure RPC function to join by invite code
+    const { data, error } = await supabase
+      .rpc('join_league_by_invite_code', { 
+        _invite_code: joinCode.trim() 
+      })
       .maybeSingle();
 
-    if (findError || !league) {
-      toast.error('Invalid invite code');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Check if already a member
-    const { data: existingMember } = await supabase
-      .from('league_members')
-      .select('id')
-      .eq('league_id', league.id)
-      .eq('user_id', user!.id)
-      .maybeSingle();
-
-    if (existingMember) {
-      toast.error('You are already a member of this league');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Join the league
-    const { error: joinError } = await supabase
-      .from('league_members')
-      .insert({
-        league_id: league.id,
-        user_id: user!.id
-      });
-
-    if (joinError) {
+    if (error) {
       toast.error('Failed to join league');
-    } else {
-      toast.success(`Joined ${league.name}!`);
-      setIsJoinOpen(false);
-      setJoinCode('');
-      fetchLeagues();
+      setIsSubmitting(false);
+      return;
     }
+
+    if (!data || !data.success) {
+      toast.error(data?.message || 'Invalid invite code');
+      setIsSubmitting(false);
+      return;
+    }
+
+    toast.success(`Joined ${data.league_name}!`);
+    setIsJoinOpen(false);
+    setJoinCode('');
+    fetchLeagues();
     setIsSubmitting(false);
   }
 
