@@ -146,13 +146,21 @@ export default function DriverPicks() {
 
   async function fetchDrivers(series: SeriesType, season: number, raceList: Race[]) {
     try {
-      const completedRace = raceList.find(r => r.isComplete);
-      const targetRace = completedRace || raceList[0];
+      // Find a completed race to get driver data from
+      let completedRace = raceList.find(r => r.isComplete);
+      let targetSeason = season;
       
-      if (!targetRace) return;
+      // If no completed races in the current season, fetch from previous season
+      if (!completedRace) {
+        const lastSeasonRaces = await getSeasonRaces(series, String(season - 1));
+        completedRace = lastSeasonRaces.find(r => r.isComplete);
+        targetSeason = season - 1;
+      }
+      
+      if (!completedRace) return;
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=racedetails&series=${series}&season=${season}&raceId=${targetRace.raceId}`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=racedetails&series=${series}&season=${targetSeason}&raceId=${completedRace.raceId}`
       );
       const data = await response.json();
       
