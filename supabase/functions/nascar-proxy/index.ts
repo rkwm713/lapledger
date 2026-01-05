@@ -113,6 +113,48 @@ serve(async (req) => {
         break;
       }
       
+      case 'driverlist': {
+        const series = url.searchParams.get('series') || 'cup';
+        const season = url.searchParams.get('season') || new Date().getFullYear().toString();
+        const seriesId = SERIES_MAP[series.toLowerCase()] || 1;
+        
+        cacheKey = `driverlist_${seriesId}_${season}`;
+        cacheDuration = CACHE_DURATION_DETAIL;
+        
+        data = getCached(cacheKey, cacheDuration);
+        if (!data) {
+          const apiUrl = `https://feed.nascar.com/api/DriverPoints?series_id=${seriesId}&race_season=${season}`;
+          console.log(`Fetching driver list: ${apiUrl}`);
+          
+          let response = await fetch(apiUrl, {
+            headers: { 
+              'Accept': 'application/json',
+              'User-Agent': 'NASCAR-Results-App/1.0',
+            },
+            signal: AbortSignal.timeout(10000),
+          });
+          
+          let driverData = await response.json();
+          
+          // If no data or empty array, fallback to previous season
+          if (!response.ok || !Array.isArray(driverData) || driverData.length === 0) {
+            console.log(`Driver list not available for ${season}, trying ${parseInt(season) - 1}`);
+            const fallbackUrl = `https://feed.nascar.com/api/DriverPoints?series_id=${seriesId}&race_season=${parseInt(season) - 1}`;
+            const fallbackResponse = await fetch(fallbackUrl, {
+              headers: { 'Accept': 'application/json', 'User-Agent': 'NASCAR-Results-App/1.0' },
+              signal: AbortSignal.timeout(10000),
+            });
+            if (fallbackResponse.ok) {
+              driverData = await fallbackResponse.json();
+            }
+          }
+          
+          data = driverData;
+          setCache(cacheKey, data);
+        }
+        break;
+      }
+      
       case 'racedetails': {
         const raceId = url.searchParams.get('raceId');
         const series = url.searchParams.get('series') || 'cup';
