@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SeasonSelector } from '@/components/SeasonSelector';
-import { Plus, Users, Trophy, Loader2 } from 'lucide-react';
+import { Plus, Users, Trophy, Loader2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface League {
@@ -222,18 +222,19 @@ export default function Leagues() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="container py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container py-6 px-4 sm:py-8 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold">My Leagues</h1>
-            <p className="text-muted-foreground">Manage your fantasy leagues</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">My Leagues</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Manage your fantasy leagues</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Dialog open={isJoinOpen} onOpenChange={setIsJoinOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Users className="h-4 w-4 mr-2" />
-                  Join League
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  <span className="sm:hidden">Join</span>
+                  <span className="hidden sm:inline">Join League</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -265,9 +266,10 @@ export default function Leagues() {
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create League
+                  <span className="sm:hidden">Create</span>
+                  <span className="hidden sm:inline">Create League</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -346,7 +348,7 @@ export default function Leagues() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {leagues.map((league) => (
               <Card 
                 key={league.id} 
