@@ -56,10 +56,11 @@ export function RaceCountdown({ raceDate, raceName, trackName, televisionBroadca
 
   if (timeLeft.total <= 0) {
     return (
-      <Card className="bg-primary text-primary-foreground">
+      <Card className="bg-nascar-red text-white overflow-hidden">
+        <div className="h-1 nascar-stripe" />
         <CardContent className="p-6 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Clock className="h-5 w-5" />
+            <Clock className="h-5 w-5 animate-pulse" />
             <span className="text-lg font-semibold">Race Starting!</span>
           </div>
           <h2 className="text-2xl font-bold">{raceName}</h2>
@@ -69,15 +70,18 @@ export function RaceCountdown({ raceDate, raceName, trackName, televisionBroadca
   }
 
   return (
-    <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-      <CardContent className="p-6">
+    <Card className="overflow-hidden border-0 shadow-lg">
+      {/* NASCAR Stripe accent */}
+      <div className="h-1 nascar-stripe" />
+      
+      <CardContent className="p-6 bg-gradient-to-br from-primary/5 via-background to-primary/10">
         <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 text-primary">
             <Clock className="h-4 w-4" />
-            <span className="text-sm font-medium uppercase tracking-wide">Next Race</span>
+            <span className="text-sm font-semibold uppercase tracking-wide">Next Race</span>
           </div>
           
-          <h2 className="text-xl md:text-2xl font-bold">{raceName}</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">{raceName}</h2>
           
           <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -95,21 +99,21 @@ export function RaceCountdown({ raceDate, raceName, trackName, televisionBroadca
           <div className="text-sm text-muted-foreground">{formattedDate}</div>
           
           <div className="grid grid-cols-4 gap-2 md:gap-4 max-w-md mx-auto">
-            <div className="bg-background rounded-lg p-3 shadow-sm">
-              <div className="text-2xl md:text-3xl font-bold tabular-nums">{timeLeft.days}</div>
-              <div className="text-xs text-muted-foreground uppercase">Days</div>
+            <div className="bg-card rounded-lg p-3 shadow-card border">
+              <div className="text-2xl md:text-3xl font-bold tabular-nums text-primary">{timeLeft.days}</div>
+              <div className="text-xs text-muted-foreground uppercase font-medium">Days</div>
             </div>
-            <div className="bg-background rounded-lg p-3 shadow-sm">
-              <div className="text-2xl md:text-3xl font-bold tabular-nums">{timeLeft.hours}</div>
-              <div className="text-xs text-muted-foreground uppercase">Hours</div>
+            <div className="bg-card rounded-lg p-3 shadow-card border">
+              <div className="text-2xl md:text-3xl font-bold tabular-nums text-primary">{timeLeft.hours}</div>
+              <div className="text-xs text-muted-foreground uppercase font-medium">Hours</div>
             </div>
-            <div className="bg-background rounded-lg p-3 shadow-sm">
-              <div className="text-2xl md:text-3xl font-bold tabular-nums">{timeLeft.minutes}</div>
-              <div className="text-xs text-muted-foreground uppercase">Mins</div>
+            <div className="bg-card rounded-lg p-3 shadow-card border">
+              <div className="text-2xl md:text-3xl font-bold tabular-nums text-primary">{timeLeft.minutes}</div>
+              <div className="text-xs text-muted-foreground uppercase font-medium">Mins</div>
             </div>
-            <div className="bg-background rounded-lg p-3 shadow-sm">
-              <div className="text-2xl md:text-3xl font-bold tabular-nums">{timeLeft.seconds}</div>
-              <div className="text-xs text-muted-foreground uppercase">Secs</div>
+            <div className="bg-card rounded-lg p-3 shadow-card border">
+              <div className="text-2xl md:text-3xl font-bold tabular-nums text-nascar-red">{timeLeft.seconds}</div>
+              <div className="text-xs text-muted-foreground uppercase font-medium">Secs</div>
             </div>
           </div>
         </div>

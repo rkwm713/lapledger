@@ -14,7 +14,7 @@ interface RaceCardProps {
 function getPositionStyle(position: number) {
   switch (position) {
     case 1:
-      return "text-yellow-500";
+      return "text-nascar-yellow";
     case 2:
       return "text-gray-400";
     case 3:
@@ -40,14 +40,19 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
   const detailUrl = `/race/${race.raceId}?series=${series}&season=${season}`;
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="group card-hover overflow-hidden">
+      {/* Hover accent stripe */}
+      <div className="h-0.5 nascar-stripe opacity-0 group-hover:opacity-100 transition-opacity" />
+      
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="space-y-2 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-lg">{race.raceName}</h3>
               {race.isComplete && (
-                <Badge variant="secondary" className="text-xs">Complete</Badge>
+                <Badge variant="default" className="text-xs bg-success hover:bg-success/90">
+                  Complete
+                </Badge>
               )}
             </div>
             
@@ -87,7 +92,7 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
             )}
           </div>
           
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="group-hover:border-primary group-hover:text-primary transition-colors">
             <Link to={detailUrl} state={{ race, series, season }}>View Details</Link>
           </Button>
         </div>

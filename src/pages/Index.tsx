@@ -28,7 +28,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navigation />
       
-      <main className="container py-6 space-y-6">
+      <main className="container py-8 space-y-8">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Race Schedule</h1>
           <p className="text-muted-foreground">
@@ -44,7 +44,7 @@ const Index = () => {
         {isLoading && <LoadingSpinner message="Loading races..." />}
 
         {error && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
             <p className="text-sm text-destructive">
               Failed to load races. Please try again.
             </p>
@@ -62,7 +62,7 @@ const Index = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="upcoming" className="mt-4 space-y-4">
+            <TabsContent value="upcoming" className="mt-6 space-y-6">
               {nextRace && (
                 <RaceCountdown
                   raceDate={nextRace.raceDate}
@@ -77,7 +77,7 @@ const Index = () => {
                   description={`All races for the ${season} ${series.toUpperCase()} series have been completed.`}
                 />
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {upcomingRaces.map((race) => (
                     <RaceCard key={race.raceId} race={race} series={series} season={season} />
                   ))}
@@ -85,14 +85,14 @@ const Index = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="completed" className="mt-4">
+            <TabsContent value="completed" className="mt-6">
               {completedRaces.length === 0 ? (
                 <EmptyState
                   title="No completed races found"
                   description={`There are no completed races for the ${season} ${series.toUpperCase()} series yet.`}
                 />
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {completedRaces.map((race) => (
                     <RaceCard key={race.raceId} race={race} series={series} season={season} />
                   ))}
