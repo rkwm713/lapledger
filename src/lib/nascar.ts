@@ -1,4 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { Race, RaceDetails, RaceResult, StageInfo, SeriesType, SearchFilters } from "./types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -22,27 +21,30 @@ async function callProxy(action: string, params: Record<string, string>): Promis
   return response.json();
 }
 
-// Transform raw API race data to our Race type
+// Transform raw API race data to our Race type (from race_list_basic.json)
 function transformRace(raw: Record<string, unknown>): Race {
+  // race_type_id: 1 = scheduled, 2 = qualifying/completed, 3 = race
+  const isComplete = Number(raw.race_type_id) >= 2 && Number(raw.actual_laps || 0) > 0;
+  
   return {
-    raceId: Number(raw.race_id || raw.RaceId || 0),
-    raceName: String(raw.race_name || raw.RaceName || 'Unknown Race'),
-    trackName: String(raw.track_name || raw.TrackName || 'Unknown Track'),
-    raceDate: String(raw.race_date || raw.RaceDate || ''),
-    winner: raw.winner_name ? String(raw.winner_name) : undefined,
-    winnerCarNumber: raw.winner_car_number ? String(raw.winner_car_number) : undefined,
-    isComplete: Boolean(raw.is_complete || raw.IsComplete || raw.run_type === 2),
+    raceId: Number(raw.race_id || 0),
+    raceName: String(raw.race_name || 'Unknown Race'),
+    trackName: String(raw.track_name || 'Unknown Track'),
+    raceDate: String(raw.race_date || ''),
+    winner: undefined, // Winner name not in race list, must get from details
+    winnerCarNumber: undefined,
+    isComplete,
   };
 }
 
-// Transform raw result data to our RaceResult type
+// Transform raw result data to our RaceResult type (from weekend-feed.json)
 function transformResult(raw: Record<string, unknown>): RaceResult {
   return {
-    position: Number(raw.finishing_position || raw.FinishingPosition || raw.position || 0),
-    driverName: String(raw.driver_name || raw.DriverName || raw.full_name || 'Unknown'),
-    carNumber: String(raw.car_number || raw.CarNumber || raw.vehicle_number || ''),
-    lapsCompleted: Number(raw.laps_completed || raw.LapsCompleted || raw.laps || 0),
-    status: String(raw.finishing_status || raw.FinishingStatus || raw.status || 'Running'),
+    position: Number(raw.finishing_position || 0),
+    driverName: String(raw.driver_fullname || 'Unknown'),
+    carNumber: String(raw.car_number || raw.official_car_number || ''),
+    lapsCompleted: Number(raw.laps_completed || 0),
+    status: String(raw.finishing_status || 'Running'),
     teamName: raw.team_name ? String(raw.team_name) : undefined,
   };
 }
@@ -60,39 +62,52 @@ export async function getSeasonRaces(series: SeriesType, season: string): Promis
     .sort((a, b) => new Date(b.raceDate).getTime() - new Date(a.raceDate).getTime());
 }
 
-export async function getRaceDetails(raceId: string): Promise<RaceDetails | null> {
-  const data = await callProxy('racedetails', { raceId }) as Record<string, unknown>;
+export async function getRaceDetails(raceId: string, series: SeriesType = 'cup', season: string = new Date().getFullYear().toString()): Promise<RaceDetails | null> {
+  const data = await callProxy('racedetails', { raceId, series, season }) as Record<string, unknown>;
   
   if (!data || typeof data !== 'object') {
     console.warn('Unexpected racedetails response format:', data);
     return null;
   }
   
-  // Handle different API response structures
-  const raceInfo = (data.race_info || data.RaceInfo || data) as Record<string, unknown>;
-  const rawResults = (data.results || data.Results || data.finishing_order || []) as Record<string, unknown>[];
-  const stageData = (data.stages || data.Stages || data.stage_results || []) as Record<string, unknown>[];
+  // The weekend-feed.json has a weekend_race array
+  const weekendRace = (data.weekend_race as Record<string, unknown>[]) || [];
+  const raceData = weekendRace[0] || data;
   
+  if (!raceData || typeof raceData !== 'object') {
+    console.warn('No race data found in response');
+    return null;
+  }
+  
+  const rawResults = (raceData.results || []) as Record<string, unknown>[];
+  
+  // Transform and sort results by finishing position
   const results = Array.isArray(rawResults) 
-    ? rawResults.map(transformResult).sort((a, b) => a.position - b.position)
+    ? rawResults
+        .map(transformResult)
+        .filter(r => r.position > 0) // Filter out non-finishers (position 0)
+        .sort((a, b) => a.position - b.position)
     : [];
   
-  const stages: StageInfo[] = Array.isArray(stageData)
-    ? stageData.map((s, i) => ({
-        stageNumber: Number(s.stage_number || s.StageNumber || i + 1),
-        laps: Number(s.laps || s.Laps || s.stage_laps || 0),
-      }))
-    : [];
+  // Build stage info from the race data
+  const stages: StageInfo[] = [];
+  const stage1Laps = Number(raceData.stage_1_laps || 0);
+  const stage2Laps = Number(raceData.stage_2_laps || 0);
+  const stage3Laps = Number(raceData.stage_3_laps || 0);
+  
+  if (stage1Laps > 0) stages.push({ stageNumber: 1, laps: stage1Laps });
+  if (stage2Laps > 0) stages.push({ stageNumber: 2, laps: stage2Laps });
+  if (stage3Laps > 0) stages.push({ stageNumber: 3, laps: stage3Laps });
   
   const winner = results.find(r => r.position === 1);
   
   return {
-    raceId: Number(raceInfo.race_id || raceInfo.RaceId || raceId),
-    raceName: String(raceInfo.race_name || raceInfo.RaceName || data.race_name || 'Unknown Race'),
-    trackName: String(raceInfo.track_name || raceInfo.TrackName || data.track_name || 'Unknown Track'),
-    raceDate: String(raceInfo.race_date || raceInfo.RaceDate || data.race_date || ''),
-    scheduledLaps: Number(raceInfo.scheduled_laps || raceInfo.ScheduledLaps || data.scheduled_laps || 0),
-    actualLaps: Number(raceInfo.actual_laps || raceInfo.ActualLaps || data.actual_laps || 0),
+    raceId: Number(raceData.race_id || raceId),
+    raceName: String(raceData.race_name || 'Unknown Race'),
+    trackName: String(raceData.track_name || 'Unknown Track'),
+    raceDate: String(raceData.race_date || ''),
+    scheduledLaps: Number(raceData.scheduled_laps || 0),
+    actualLaps: Number(raceData.actual_laps || 0),
     winner,
     results,
     stages,
@@ -127,12 +142,8 @@ export async function searchRaces(filters: SearchFilters): Promise<Race[]> {
       if (raceDate > toDate) return false;
     }
     
-    // Filter by winner name (if available)
-    if (filters.driverName && race.winner) {
-      if (!race.winner.toLowerCase().includes(filters.driverName.toLowerCase())) {
-        return false;
-      }
-    }
+    // Note: Winner name filtering requires fetching each race's details
+    // For now, we skip this filter in the basic search
     
     return true;
   });

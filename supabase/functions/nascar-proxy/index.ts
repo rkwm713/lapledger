@@ -90,15 +90,20 @@ serve(async (req) => {
         
         data = getCached(cacheKey, cacheDuration);
         if (!data) {
-          const apiUrl = `https://feed.nascar.com/api/racelist?startseason=${season}&endseason=${season}&series_id=${seriesId}`;
+          // Use the public cacher API (no auth required)
+          const apiUrl = `https://cf.nascar.com/cacher/${season}/${seriesId}/race_list_basic.json`;
           console.log(`Fetching: ${apiUrl}`);
           
           const response = await fetch(apiUrl, {
-            headers: { 'Accept': 'application/json' },
+            headers: { 
+              'Accept': 'application/json',
+              'User-Agent': 'NASCAR-Results-App/1.0',
+            },
             signal: AbortSignal.timeout(10000),
           });
           
           if (!response.ok) {
+            console.error(`NASCAR API Error: ${response.status} ${response.statusText}`);
             throw new Error(`NASCAR API returned ${response.status}`);
           }
           
@@ -110,6 +115,10 @@ serve(async (req) => {
       
       case 'racedetails': {
         const raceId = url.searchParams.get('raceId');
+        const series = url.searchParams.get('series') || 'cup';
+        const season = url.searchParams.get('season') || new Date().getFullYear().toString();
+        const seriesId = SERIES_MAP[series.toLowerCase()] || 1;
+        
         if (!raceId) {
           return new Response(
             JSON.stringify({ error: 'raceId parameter is required' }),
@@ -117,48 +126,25 @@ serve(async (req) => {
           );
         }
         
-        cacheKey = `racedetails_${raceId}`;
+        cacheKey = `racedetails_${seriesId}_${season}_${raceId}`;
         cacheDuration = CACHE_DURATION_DETAIL;
         
         data = getCached(cacheKey, cacheDuration);
         if (!data) {
-          const apiUrl = `https://feed.nascar.com/api/races/${raceId}`;
+          // Use the weekend-feed.json endpoint for full race results
+          const apiUrl = `https://cf.nascar.com/cacher/${season}/${seriesId}/${raceId}/weekend-feed.json`;
           console.log(`Fetching: ${apiUrl}`);
           
           const response = await fetch(apiUrl, {
-            headers: { 'Accept': 'application/json' },
+            headers: { 
+              'Accept': 'application/json',
+              'User-Agent': 'NASCAR-Results-App/1.0',
+            },
             signal: AbortSignal.timeout(10000),
           });
           
           if (!response.ok) {
-            throw new Error(`NASCAR API returned ${response.status}`);
-          }
-          
-          data = await response.json();
-          setCache(cacheKey, data);
-        }
-        break;
-      }
-      
-      case 'drivers': {
-        const series = url.searchParams.get('series') || 'cup';
-        const season = url.searchParams.get('season') || new Date().getFullYear().toString();
-        const seriesId = SERIES_MAP[series.toLowerCase()] || 1;
-        
-        cacheKey = `drivers_${seriesId}_${season}`;
-        cacheDuration = CACHE_DURATION_LIST;
-        
-        data = getCached(cacheKey, cacheDuration);
-        if (!data) {
-          const apiUrl = `https://feed.nascar.com/api/Driver?series_id=${seriesId}&race_season=${season}`;
-          console.log(`Fetching: ${apiUrl}`);
-          
-          const response = await fetch(apiUrl, {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (!response.ok) {
+            console.error(`NASCAR API Error: ${response.status} ${response.statusText}`);
             throw new Error(`NASCAR API returned ${response.status}`);
           }
           
@@ -170,7 +156,7 @@ serve(async (req) => {
       
       default:
         return new Response(
-          JSON.stringify({ error: 'Invalid action. Use: racelist, racedetails, or drivers' }),
+          JSON.stringify({ error: 'Invalid action. Use: racelist or racedetails' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }

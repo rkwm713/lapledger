@@ -3,13 +3,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Trophy } from "lucide-react";
-import type { Race } from "@/lib/types";
+import type { Race, SeriesType } from "@/lib/types";
 
 interface RaceCardProps {
   race: Race;
+  series: SeriesType;
+  season: string;
 }
 
-export function RaceCard({ race }: RaceCardProps) {
+export function RaceCard({ race, series, season }: RaceCardProps) {
   const formattedDate = race.raceDate
     ? new Date(race.raceDate).toLocaleDateString('en-US', {
         weekday: 'short',
@@ -18,6 +20,8 @@ export function RaceCard({ race }: RaceCardProps) {
         year: 'numeric',
       })
     : 'Date TBD';
+
+  const detailUrl = `/race/${race.raceId}?series=${series}&season=${season}`;
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -54,7 +58,7 @@ export function RaceCard({ race }: RaceCardProps) {
           </div>
           
           <Button asChild variant="outline" size="sm">
-            <Link to={`/race/${race.raceId}`}>View Details</Link>
+            <Link to={detailUrl}>View Details</Link>
           </Button>
         </div>
       </CardContent>
