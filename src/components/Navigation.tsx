@@ -31,7 +31,7 @@ export function Navigation() {
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-center">
-              <img src={logo} alt="Fantasy Racer" className="h-8 sm:h-10" />
+              <img src={logo} alt="LapLedger" className="h-8 sm:h-10" />
             </Link>
             
             <div className="flex gap-1">
