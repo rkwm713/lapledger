@@ -21,17 +21,28 @@ async function callProxy(action: string, params: Record<string, string>): Promis
   return response.json();
 }
 
+// Extract winner name from race_comments field (e.g., "Christopher Bell has won...")
+function extractWinnerFromComments(comments: unknown): string | undefined {
+  if (!comments || typeof comments !== 'string') return undefined;
+  // Match patterns like "Driver Name has won" or "Driver Name wins"
+  const match = comments.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:has\s+won|wins)/);
+  return match?.[1];
+}
+
 // Transform raw API race data to our Race type (from race_list_basic.json)
 function transformRace(raw: Record<string, unknown>): Race {
   // race_type_id: 1 = scheduled, 2 = qualifying/completed, 3 = race
   const isComplete = Number(raw.race_type_id) >= 2 && Number(raw.actual_laps || 0) > 0;
+  
+  // Try to extract winner from race_comments
+  const winner = extractWinnerFromComments(raw.race_comments);
   
   return {
     raceId: Number(raw.race_id || 0),
     raceName: String(raw.race_name || 'Unknown Race'),
     trackName: String(raw.track_name || 'Unknown Track'),
     raceDate: String(raw.race_date || ''),
-    winner: undefined, // Winner name not in race list, must get from details
+    winner,
     winnerCarNumber: undefined,
     isComplete,
   };
@@ -39,12 +50,16 @@ function transformRace(raw: Record<string, unknown>): Race {
 
 // Transform raw result data to our RaceResult type (from weekend-feed.json)
 function transformResult(raw: Record<string, unknown>): RaceResult {
+  const rawStatus = String(raw.finishing_status || 'Running');
+  // "Running" means completed normally - display as "Finished" for clarity
+  const status = rawStatus === 'Running' ? 'Finished' : rawStatus;
+  
   return {
     position: Number(raw.finishing_position || 0),
     driverName: String(raw.driver_fullname || 'Unknown'),
     carNumber: String(raw.car_number || raw.official_car_number || ''),
     lapsCompleted: Number(raw.laps_completed || 0),
-    status: String(raw.finishing_status || 'Running'),
+    status,
     teamName: raw.team_name ? String(raw.team_name) : undefined,
   };
 }

@@ -6,10 +6,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import type { RaceResult } from "@/lib/types";
 
 interface ResultsTableProps {
   results: RaceResult[];
+}
+
+function getStatusBadge(status: string) {
+  if (status === 'Finished') {
+    return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Finished</Badge>;
+  }
+  // DNF reasons get a muted/warning style
+  return <Badge variant="outline" className="text-muted-foreground">{status}</Badge>;
 }
 
 export function ResultsTable({ results }: ResultsTableProps) {
@@ -32,7 +41,7 @@ export function ResultsTable({ results }: ResultsTableProps) {
               <TableCell>{result.driverName}</TableCell>
               <TableCell>{result.carNumber}</TableCell>
               <TableCell className="text-right">{result.lapsCompleted}</TableCell>
-              <TableCell className="text-muted-foreground">{result.status}</TableCell>
+              <TableCell>{getStatusBadge(result.status)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
