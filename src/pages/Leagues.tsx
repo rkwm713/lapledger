@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SeasonSelector } from '@/components/SeasonSelector';
 import { Plus, Users, Trophy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -320,19 +321,11 @@ export default function Leagues() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Season</Label>
-                      <Select
+                      <SeasonSelector
                         value={createForm.season.toString()}
-                        onValueChange={(v) => setCreateForm({ ...createForm, season: parseInt(v) })}
+                        onChange={(v) => setCreateForm({ ...createForm, season: parseInt(v) })}
                         disabled={isSubmitting}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="2025">2025</SelectItem>
-                          <SelectItem value="2024">2024</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Series</Label>
