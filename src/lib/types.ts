@@ -43,6 +43,7 @@ export interface RaceDetails {
   winner?: RaceResult;
   results: RaceResult[];
   stages: StageInfo[];
+  isFutureRace?: boolean;
 }
 
 export interface SearchFilters {

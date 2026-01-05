@@ -79,7 +79,7 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
           </div>
           
           <Button asChild variant="outline" size="sm">
-            <Link to={detailUrl}>View Details</Link>
+            <Link to={detailUrl} state={{ race, series, season }}>View Details</Link>
           </Button>
         </div>
       </CardContent>

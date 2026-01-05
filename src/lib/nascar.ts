@@ -151,6 +151,9 @@ export async function getRaceDetails(raceId: string, series: SeriesType = 'cup',
     return null;
   }
   
+  // Check if this is a "not available yet" response for future races
+  const isFutureRace = data.message === 'Race data not available yet - race may not have occurred';
+  
   // The weekend-feed.json has a weekend_race array
   const weekendRace = (data.weekend_race as Record<string, unknown>[]) || [];
   const raceData = weekendRace[0] || data;
@@ -184,14 +187,15 @@ export async function getRaceDetails(raceId: string, series: SeriesType = 'cup',
   
   return {
     raceId: Number(raceData.race_id || raceId),
-    raceName: String(raceData.race_name || 'Unknown Race'),
-    trackName: String(raceData.track_name || 'Unknown Track'),
+    raceName: String(raceData.race_name || ''),
+    trackName: String(raceData.track_name || ''),
     raceDate: String(raceData.race_date || ''),
     scheduledLaps: Number(raceData.scheduled_laps || 0),
     actualLaps: Number(raceData.actual_laps || 0),
     winner,
     results,
     stages,
+    isFutureRace,
   };
 }
 
