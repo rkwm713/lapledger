@@ -143,6 +143,20 @@ serve(async (req) => {
             signal: AbortSignal.timeout(10000),
           });
           
+          // Handle 403/404 for future races that don't have data yet
+          if (response.status === 403 || response.status === 404) {
+            console.log(`Race ${raceId} data not available yet (${response.status})`);
+            data = { 
+              results: [], 
+              stages: [],
+              race_info: null,
+              message: 'Race data not available yet - race may not have occurred'
+            };
+            // Cache this "not available" response for a shorter time
+            setCache(cacheKey, data);
+            break;
+          }
+          
           if (!response.ok) {
             console.error(`NASCAR API Error: ${response.status} ${response.statusText}`);
             throw new Error(`NASCAR API returned ${response.status}`);
