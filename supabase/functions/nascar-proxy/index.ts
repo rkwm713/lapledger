@@ -117,73 +117,120 @@ serve(async (req) => {
         const series = url.searchParams.get('series') || 'cup';
         const season = url.searchParams.get('season') || new Date().getFullYear().toString();
         const seriesId = SERIES_MAP[series.toLowerCase()] || 1;
-        
+
         cacheKey = `driverlist_${seriesId}_${season}`;
         cacheDuration = CACHE_DURATION_DETAIL;
-        
+
         data = getCached(cacheKey, cacheDuration);
         if (!data) {
-          // Try current season first using cf.nascar.com cacher API (same as race list)
-          // Get a completed race from previous season to extract drivers
-          const fallbackSeason = String(parseInt(season) - 1);
-          const raceListUrl = `https://cf.nascar.com/cacher/${fallbackSeason}/${seriesId}/race_list_basic.json`;
-          console.log(`Fetching race list for driver extraction: ${raceListUrl}`);
-          
+          const headers = {
+            'Accept': 'application/json',
+            'User-Agent': 'NASCAR-Results-App/1.0',
+          };
+
+          const tryParseJson = async (res: Response): Promise<unknown | null> => {
+            const text = await res.text();
+            try {
+              return JSON.parse(text);
+            } catch (e) {
+              console.error(`JSON parse failed (status ${res.status})`, e);
+              console.error(`Body preview: ${text.slice(0, 200)}`);
+              return null;
+            }
+          };
+
           try {
-            const raceListResponse = await fetch(raceListUrl, {
-              headers: { 'Accept': 'application/json', 'User-Agent': 'NASCAR-Results-App/1.0' },
+            // 1) Prefer a season-wide list from feed.nascar.com (if available)
+            const driverPointsUrl = `https://feed.nascar.com/api/DriverPoints?series_id=${seriesId}&race_season=${season}`;
+            console.log(`Fetching driver points: ${driverPointsUrl}`);
+
+            const dpRes = await fetch(driverPointsUrl, {
+              headers,
               signal: AbortSignal.timeout(10000),
             });
-            
-            if (raceListResponse.ok) {
-              const races = await raceListResponse.json();
-              // Find a completed race (one with winner_driver_id set)
-              const completedRace = Array.isArray(races) ? races.find((r: any) => r.winner_driver_id) : null;
-              
-              if (completedRace) {
+
+            let driverList: Array<{ driver_id: number; driver_name: string; car_number: string; team_name: string }> | null = null;
+
+            const dpJson = await tryParseJson(dpRes);
+            if (dpRes.ok && Array.isArray(dpJson) && dpJson.length > 0) {
+              driverList = dpJson
+                .map((d: any) => ({
+                  driver_id: d.driver_id,
+                  driver_name: (d.driver_name || `${d.driver_first_name || ''} ${d.driver_last_name || ''}`.trim()).trim(),
+                  car_number: d.car_number || '',
+                  team_name: d.team_name || '',
+                }))
+                .filter((d) => Boolean(d.driver_id) && Boolean(d.driver_name));
+
+              console.log(`DriverPoints returned ${driverList.length} drivers`);
+            } else {
+              console.log(`DriverPoints unavailable/empty for season ${season} (status ${dpRes.status}); falling back.`);
+            }
+
+            // 2) Fallback: use last season, and if track-specific data isn't available, use any completed race
+            if (!driverList || driverList.length === 0) {
+              const fallbackSeason = String(parseInt(season) - 1);
+              const raceListUrl = `https://cf.nascar.com/cacher/${fallbackSeason}/${seriesId}/race_list_basic.json`;
+              console.log(`Fetching race list for driver extraction: ${raceListUrl}`);
+
+              const rlRes = await fetch(raceListUrl, {
+                headers,
+                signal: AbortSignal.timeout(10000),
+              });
+
+              const racesJson = await tryParseJson(rlRes);
+              const races = Array.isArray(racesJson) ? racesJson : [];
+              const completedRace = races.find((r: any) => r?.winner_driver_id) || races.find((r: any) => r?.race_id) || null;
+
+              if (rlRes.ok && completedRace?.race_id) {
                 const raceDetailsUrl = `https://cf.nascar.com/cacher/${fallbackSeason}/${seriesId}/${completedRace.race_id}/weekend-feed.json`;
                 console.log(`Fetching race details for drivers: ${raceDetailsUrl}`);
-                
-                const raceResponse = await fetch(raceDetailsUrl, {
-                  headers: { 'Accept': 'application/json', 'User-Agent': 'NASCAR-Results-App/1.0' },
+
+                const rdRes = await fetch(raceDetailsUrl, {
+                  headers,
                   signal: AbortSignal.timeout(10000),
                 });
-                
-                if (raceResponse.ok) {
-                  const raceData = await raceResponse.json();
-                  const weekendRace = raceData.weekend_race?.[0];
-                  const results = weekendRace?.results || [];
-                  
-                  // Extract unique drivers
-                  const uniqueDrivers = new Map();
+
+                const raceData = await tryParseJson(rdRes) as any;
+                const results = raceData?.weekend_race?.[0]?.results ?? [];
+
+                if (rdRes.ok && Array.isArray(results) && results.length > 0) {
+                  const uniqueDrivers = new Map<number, { driver_id: number; driver_name: string; car_number: string; team_name: string }>();
+
                   results.forEach((r: any) => {
-                    if (r.driver_id && !uniqueDrivers.has(r.driver_id)) {
-                      uniqueDrivers.set(r.driver_id, {
-                        driver_id: r.driver_id,
-                        driver_name: r.driver_fullname || `${r.driver_first_name || ''} ${r.driver_last_name || ''}`.trim(),
-                        car_number: r.car_number || '',
-                        team_name: r.team_name || ''
-                      });
-                    }
+                    const id = r?.driver_id;
+                    if (!id || uniqueDrivers.has(id)) return;
+
+                    const name = (r.driver_fullname || `${r.driver_first_name || ''} ${r.driver_last_name || ''}`.trim()).trim();
+                    if (!name) return;
+
+                    uniqueDrivers.set(id, {
+                      driver_id: id,
+                      driver_name: name,
+                      car_number: r.car_number || '',
+                      team_name: r.team_name || '',
+                    });
                   });
-                  
-                  data = Array.from(uniqueDrivers.values());
-                  console.log(`Extracted ${(data as any[]).length} drivers from race ${completedRace.race_id}`);
+
+                  driverList = Array.from(uniqueDrivers.values());
+                  console.log(`Extracted ${driverList.length} drivers from race ${completedRace.race_id}`);
+                } else {
+                  console.log(`Race details did not return usable results (status ${rdRes.status})`);
                 }
+              } else {
+                console.log(`Race list unavailable/empty for season ${fallbackSeason} (status ${rlRes.status})`);
               }
             }
-          } catch (fetchError) {
-            console.error('Error fetching drivers from race data:', fetchError);
-          }
-          
-          // If still no data, return empty array
-          if (!data) {
-            console.log('No driver data available, returning empty array');
+
+            data = driverList ?? [];
+            setCache(cacheKey, data);
+          } catch (err) {
+            console.error('Driverlist error:', err);
             data = [];
+            setCache(cacheKey, data);
           }
-          
-          setCache(cacheKey, data);
         }
+
         break;
       }
       
