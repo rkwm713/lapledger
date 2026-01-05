@@ -14,16 +14,266 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      driver_picks: {
+        Row: {
+          car_number: string | null
+          created_at: string
+          driver_id: number
+          driver_name: string
+          id: string
+          league_id: string
+          locked_at: string | null
+          pick_order: number
+          season: number
+          team_name: string | null
+          user_id: string
+        }
+        Insert: {
+          car_number?: string | null
+          created_at?: string
+          driver_id: number
+          driver_name: string
+          id?: string
+          league_id: string
+          locked_at?: string | null
+          pick_order: number
+          season: number
+          team_name?: string | null
+          user_id: string
+        }
+        Update: {
+          car_number?: string | null
+          created_at?: string
+          driver_id?: number
+          driver_name?: string
+          id?: string
+          league_id?: string
+          locked_at?: string | null
+          pick_order?: number
+          season?: number
+          team_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_picks_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_members: {
+        Row: {
+          id: string
+          joined_at: string
+          league_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          league_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          league_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_members_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leagues: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          invite_code: string
+          name: string
+          owner_id: string
+          season: number
+          series: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          invite_code: string
+          name: string
+          owner_id: string
+          season?: number
+          series?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          invite_code?: string
+          name?: string
+          owner_id?: string
+          season?: number
+          series?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      race_scores: {
+        Row: {
+          created_at: string
+          driver_id: number
+          driver_name: string
+          finishing_position: number | null
+          id: string
+          points_earned: number | null
+          race_date: string
+          race_id: number
+          race_name: string
+          season: number
+          series: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: number
+          driver_name: string
+          finishing_position?: number | null
+          id?: string
+          points_earned?: number | null
+          race_date: string
+          race_id: number
+          race_name: string
+          season: number
+          series: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: number
+          driver_name?: string
+          finishing_position?: number | null
+          id?: string
+          points_earned?: number | null
+          race_date?: string
+          race_id?: number
+          race_name?: string
+          season?: number
+          series?: string
+        }
+        Relationships: []
+      }
+      user_race_scores: {
+        Row: {
+          created_at: string
+          driver_1_points: number | null
+          driver_2_points: number | null
+          id: string
+          league_id: string
+          race_id: number
+          total_points: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          driver_1_points?: number | null
+          driver_2_points?: number | null
+          id?: string
+          league_id: string
+          race_id: number
+          total_points?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          driver_1_points?: number | null
+          driver_2_points?: number | null
+          id?: string
+          league_id?: string
+          race_id?: number
+          total_points?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_race_scores_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_league_member: {
+        Args: { _league_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_league_owner: {
+        Args: { _league_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +400,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
