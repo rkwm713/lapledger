@@ -1,1 +1,4 @@
 project_id = "nygacxhvszabtncdqiml"
+
+[functions.nascar-proxy]
+verify_jwt = false
