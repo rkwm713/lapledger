@@ -6,10 +6,11 @@ import { getSeasonRaces } from '@/lib/nascar';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Check, X, Search, AlertCircle, Lock, Calendar, Trophy } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, AlertCircle, Lock, Calendar, Trophy, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { SeriesType, RaceResult, Race } from '@/lib/types';
 
 interface League {
@@ -51,7 +52,6 @@ export default function DriverPicks() {
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectingRaceId, setSelectingRaceId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -164,19 +164,27 @@ export default function DriverPicks() {
       );
       const data = await response.json();
       
-      if (data.results) {
+      // Handle nested response structure: weekend_race[0].results
+      const weekendRace = data.weekend_race?.[0];
+      const results = weekendRace?.results || data.results || [];
+      
+      if (results.length > 0) {
         const uniqueDrivers = new Map<number, DriverOption>();
-        data.results.forEach((r: RaceResult & { driver_id?: number }) => {
-          if (r.driver_id && !uniqueDrivers.has(r.driver_id)) {
-            uniqueDrivers.set(r.driver_id, {
-              driver_id: r.driver_id,
-              driver_name: r.driverName,
-              car_number: r.carNumber,
-              team_name: r.teamName || ''
+        results.forEach((r: any) => {
+          const driverId = r.driver_id;
+          if (driverId && !uniqueDrivers.has(driverId)) {
+            uniqueDrivers.set(driverId, {
+              driver_id: driverId,
+              driver_name: r.driver_fullname || r.driverName || '',
+              car_number: r.car_number || r.carNumber || '',
+              team_name: r.team_name || r.teamName || ''
             });
           }
         });
-        setDrivers(Array.from(uniqueDrivers.values()));
+        // Sort drivers alphabetically by name
+        setDrivers(Array.from(uniqueDrivers.values()).sort((a, b) => 
+          a.driver_name.localeCompare(b.driver_name)
+        ));
       }
     } catch (error) {
       console.error('Failed to fetch drivers:', error);
@@ -275,11 +283,7 @@ export default function DriverPicks() {
     setSaving(false);
   }
 
-  const filteredDrivers = drivers.filter(d =>
-    d.driver_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.car_number.includes(searchQuery) ||
-    d.team_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Get unique drivers that have been picked
 
   // Get unique drivers that have been picked
   const pickedDriverIds = [...new Set(picks.map(p => p.driver_id))];
@@ -428,52 +432,64 @@ export default function DriverPicks() {
                     </div>
                   </div>
 
-                  {/* Driver Selection Panel */}
+                  {/* Driver Selection Dropdown */}
                   {isSelecting && (
                     <div className="mt-4 pt-4 border-t">
-                      <div className="relative mb-4">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search drivers..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      
                       {drivers.length === 0 ? (
                         <p className="text-muted-foreground text-center py-4">
                           No driver data available yet.
                         </p>
                       ) : (
-                        <div className="grid gap-2 max-h-64 overflow-y-auto">
-                          {filteredDrivers.map((driver) => {
-                            const usage = driverUsage[driver.driver_id] || 0;
-                            const isMaxedOut = usage >= 2;
-                            const isCurrentPick = race.pick?.driver_id === driver.driver_id;
-                            
-                            return (
-                              <Button
-                                key={driver.driver_id}
-                                variant="outline"
-                                className="justify-between h-auto py-2"
-                                onClick={() => selectDriver(driver, race.raceId)}
-                                disabled={isMaxedOut && !isCurrentPick || saving}
-                              >
-                                <div className="text-left">
-                                  <span className="font-medium">#{driver.car_number} {driver.driver_name}</span>
-                                  <span className="block text-xs text-muted-foreground">{driver.team_name}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={isMaxedOut ? 'destructive' : 'outline'} className="text-xs">
-                                    {usage}/2
-                                  </Badge>
-                                  {isCurrentPick && <Check className="h-4 w-4 text-primary" />}
-                                </div>
-                              </Button>
-                            );
-                          })}
-                        </div>
+                        <Popover open={true}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between">
+                              Select a driver...
+                              <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-0 bg-popover" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                            <Command>
+                              <CommandInput placeholder="Search drivers..." />
+                              <CommandList className="max-h-64">
+                                <CommandEmpty>No driver found.</CommandEmpty>
+                                <CommandGroup>
+                                  {drivers.map((driver) => {
+                                    const usage = driverUsage[driver.driver_id] || 0;
+                                    const isMaxedOut = usage >= 2;
+                                    const isCurrentPick = race.pick?.driver_id === driver.driver_id;
+                                    
+                                    return (
+                                      <CommandItem
+                                        key={driver.driver_id}
+                                        value={`${driver.driver_name} ${driver.car_number} ${driver.team_name}`}
+                                        disabled={isMaxedOut && !isCurrentPick}
+                                        onSelect={() => {
+                                          if (!isMaxedOut || isCurrentPick) {
+                                            selectDriver(driver, race.raceId);
+                                          }
+                                        }}
+                                        className="cursor-pointer"
+                                      >
+                                        <div className="flex items-center justify-between w-full">
+                                          <div className="text-left">
+                                            <span className="font-medium">#{driver.car_number} {driver.driver_name}</span>
+                                            <span className="block text-xs text-muted-foreground">{driver.team_name}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Badge variant={isMaxedOut ? 'destructive' : 'outline'} className="text-xs">
+                                              {usage}/2
+                                            </Badge>
+                                            {isCurrentPick && <Check className="h-4 w-4 text-primary" />}
+                                          </div>
+                                        </div>
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       )}
                     </div>
                   )}
