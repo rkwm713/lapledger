@@ -17,6 +17,8 @@ export interface Race {
   winnerCarNumber?: string;
   topFinishers?: TopFinisher[];
   isComplete: boolean;
+  televisionBroadcaster?: string;
+  radioBroadcaster?: string;
 }
 
 export interface RaceResult {

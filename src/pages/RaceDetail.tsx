@@ -51,12 +51,15 @@ const RaceDetail = () => {
   
   const isFutureRace = raceDetails?.isFutureRace || (!raceInfo?.isComplete && new Date(raceDate) > new Date());
 
-  const formattedDate = raceDate
-    ? new Date(raceDate).toLocaleDateString('en-US', {
+  const formattedDateTime = raceDate
+    ? new Date(raceDate).toLocaleString('en-US', {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
         year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
       })
     : 'Date TBD';
 
@@ -100,7 +103,7 @@ const RaceDetail = () => {
                 </span>
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  {formattedDate}
+                  {formattedDateTime}
                 </span>
                 {raceDetails && raceDetails.actualLaps > 0 && (
                   <span className="flex items-center gap-2">
@@ -120,7 +123,7 @@ const RaceDetail = () => {
                     <div>
                       <p className="font-medium">Upcoming Race</p>
                       <p className="text-sm text-muted-foreground">
-                        Results will be available after the race is complete. Check back after {formattedDate}.
+                        Results will be available after the race is complete. Check back after the race on {formattedDateTime}.
                       </p>
                     </div>
                   </div>
