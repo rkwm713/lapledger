@@ -105,112 +105,130 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
-      <div className="mb-8 flex flex-col items-center">
-        <div className="flex items-center gap-3 mb-2">
-          <Flag className="h-10 w-10 text-primary" />
-          <h1 className="text-3xl font-bold">NASCAR Fantasy League</h1>
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* NASCAR Stripe Header */}
+      <div className="nascar-stripe h-2" />
+      
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
+        <div className="mb-6 sm:mb-8 flex flex-col items-center text-center">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <Flag className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-bold">NASCAR Fantasy</h1>
+          </div>
+          <p className="text-sm sm:text-base text-muted-foreground">Pick your drivers. Compete with friends.</p>
         </div>
-        <p className="text-muted-foreground">Pick your drivers. Compete with friends.</p>
+
+        <Card className="w-full max-w-md border-2">
+          <Tabs defaultValue="login" className="w-full">
+            <CardHeader className="pb-2">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login" className="text-sm sm:text-base">Login</TabsTrigger>
+                <TabsTrigger value="signup" className="text-sm sm:text-base">Sign Up</TabsTrigger>
+              </TabsList>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <TabsContent value="login" className="mt-0 space-y-4">
+                <div className="text-center sm:text-left">
+                  <CardTitle className="text-lg sm:text-xl mb-1">Welcome back</CardTitle>
+                  <CardDescription className="text-sm">
+                    Sign in to access your leagues
+                  </CardDescription>
+                </div>
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email" className="text-sm">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={loginForm.email}
+                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                      disabled={isSubmitting}
+                      className="h-11"
+                    />
+                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password" className="text-sm">Password</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={loginForm.password}
+                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                      disabled={isSubmitting}
+                      className="h-11"
+                    />
+                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                  </div>
+                  <Button type="submit" className="w-full h-11 text-sm sm:text-base" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign In
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="signup" className="mt-0 space-y-4">
+                <div className="text-center sm:text-left">
+                  <CardTitle className="text-lg sm:text-xl mb-1">Create an account</CardTitle>
+                  <CardDescription className="text-sm">
+                    Join NASCAR Fantasy and start competing
+                  </CardDescription>
+                </div>
+                <form onSubmit={handleSignup} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name" className="text-sm">Display Name</Label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="RaceFan123"
+                      value={signupForm.displayName}
+                      onChange={(e) => setSignupForm({ ...signupForm, displayName: e.target.value })}
+                      disabled={isSubmitting}
+                      className="h-11"
+                    />
+                    {errors.displayName && <p className="text-sm text-destructive">{errors.displayName}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email" className="text-sm">Email</Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={signupForm.email}
+                      onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+                      disabled={isSubmitting}
+                      className="h-11"
+                    />
+                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password" className="text-sm">Password</Label>
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={signupForm.password}
+                      onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+                      disabled={isSubmitting}
+                      className="h-11"
+                    />
+                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                  </div>
+                  <Button type="submit" className="w-full h-11 text-sm sm:text-base" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Account
+                  </Button>
+                </form>
+              </TabsContent>
+            </CardContent>
+          </Tabs>
+        </Card>
+        
+        <p className="mt-6 text-xs text-muted-foreground text-center">
+          By signing up, you agree to our terms of service
+        </p>
       </div>
-
-      <Card className="w-full max-w-md">
-        <Tabs defaultValue="login" className="w-full">
-          <CardHeader>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-          </CardHeader>
-          <CardContent>
-            <TabsContent value="login" className="mt-0">
-              <CardTitle className="mb-2">Welcome back</CardTitle>
-              <CardDescription className="mb-6">
-                Sign in to your account to access your leagues
-              </CardDescription>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={loginForm.email}
-                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                    disabled={isSubmitting}
-                  />
-                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    disabled={isSubmitting}
-                  />
-                  {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="mt-0">
-              <CardTitle className="mb-2">Create an account</CardTitle>
-              <CardDescription className="mb-6">
-                Join NASCAR Fantasy League and start competing
-              </CardDescription>
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Display Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="RaceFan123"
-                    value={signupForm.displayName}
-                    onChange={(e) => setSignupForm({ ...signupForm, displayName: e.target.value })}
-                    disabled={isSubmitting}
-                  />
-                  {errors.displayName && <p className="text-sm text-destructive">{errors.displayName}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={signupForm.email}
-                    onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                    disabled={isSubmitting}
-                  />
-                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupForm.password}
-                    onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                    disabled={isSubmitting}
-                  />
-                  {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
-                </Button>
-              </form>
-            </TabsContent>
-          </CardContent>
-        </Tabs>
-      </Card>
     </div>
   );
 }
