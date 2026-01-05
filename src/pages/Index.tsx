@@ -28,15 +28,15 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navigation />
       
-      <main className="container py-8 space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Race Schedule</h1>
-          <p className="text-muted-foreground">
+      <main className="container py-6 md:py-8 space-y-6 md:space-y-8 px-4">
+        <div className="space-y-1 md:space-y-2">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Race Schedule</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Browse NASCAR races and view detailed results.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <SeriesSelector value={series} onChange={setSeries} />
           <SeasonSelector value={season} onChange={setSeason} />
         </div>
