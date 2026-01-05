@@ -1,4 +1,4 @@
-import type { Race, RaceDetails, RaceResult, StageInfo, SeriesType, SearchFilters } from "./types";
+import type { Race, RaceDetails, RaceResult, StageInfo, SeriesType, SearchFilters, TopFinisher } from "./types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -24,8 +24,8 @@ async function callProxy(action: string, params: Record<string, string>): Promis
 // Extract winner name from race_comments field (e.g., "Christopher Bell has won...")
 function extractWinnerFromComments(comments: unknown): string | undefined {
   if (!comments || typeof comments !== 'string') return undefined;
-  // Match patterns like "Driver Name has won" or "Driver Name wins"
-  const match = comments.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s+(?:has\s+won|wins)/);
+  // Match patterns like "Driver Name has won", "Driver Name wins", "Driver Name won"
+  const match = comments.match(/^([A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+)+)\s+(?:has\s+won|wins|won)/);
   return match?.[1];
 }
 
@@ -66,6 +66,38 @@ function transformResult(raw: Record<string, unknown>): RaceResult {
   };
 }
 
+// Fetch top 3 finishers for a specific race
+async function fetchTopFinishers(raceId: number, series: SeriesType, season: string): Promise<TopFinisher[]> {
+  try {
+    const data = await callProxy('racedetails', { raceId: String(raceId), series, season }) as Record<string, unknown>;
+    
+    if (!data || typeof data !== 'object') return [];
+    
+    const weekendRace = (data.weekend_race as Record<string, unknown>[]) || [];
+    const raceData = weekendRace[0] || data;
+    
+    if (!raceData || typeof raceData !== 'object') return [];
+    
+    const rawResults = (raceData.results || []) as Record<string, unknown>[];
+    
+    if (!Array.isArray(rawResults)) return [];
+    
+    // Get top 3 finishers
+    return rawResults
+      .map(transformResult)
+      .filter(r => r.position > 0 && r.position <= 3)
+      .sort((a, b) => a.position - b.position)
+      .map(r => ({
+        position: r.position,
+        driverName: r.driverName,
+        carNumber: r.carNumber || undefined,
+      }));
+  } catch (error) {
+    console.warn(`Failed to fetch top finishers for race ${raceId}:`, error);
+    return [];
+  }
+}
+
 export async function getSeasonRaces(series: SeriesType, season: string): Promise<Race[]> {
   const data = await callProxy('racelist', { series, season }) as Record<string, unknown>[];
   
@@ -74,9 +106,28 @@ export async function getSeasonRaces(series: SeriesType, season: string): Promis
     return [];
   }
   
-  return data
+  const races = data
     .map(transformRace)
     .sort((a, b) => new Date(b.raceDate).getTime() - new Date(a.raceDate).getTime());
+  
+  // Fetch top 3 finishers for completed races in parallel
+  const completedRaces = races.filter(r => r.isComplete);
+  const topFinishersPromises = completedRaces.map(race => 
+    fetchTopFinishers(race.raceId, series, season)
+  );
+  
+  const topFinishersResults = await Promise.all(topFinishersPromises);
+  
+  // Merge top finishers back into races
+  const topFinishersMap = new Map<number, TopFinisher[]>();
+  completedRaces.forEach((race, index) => {
+    topFinishersMap.set(race.raceId, topFinishersResults[index]);
+  });
+  
+  return races.map(race => ({
+    ...race,
+    topFinishers: topFinishersMap.get(race.raceId),
+  }));
 }
 
 export async function getRaceDetails(raceId: string, series: SeriesType = 'cup', season: string = new Date().getFullYear().toString()): Promise<RaceDetails | null> {
