@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Flag, Search, Trophy, LogIn, LogOut, User } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +26,8 @@ export function Navigation() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link to="/" className="font-bold text-lg flex items-center gap-2">
-            <Flag className="h-5 w-5" />
-            NASCAR Fantasy
+          <Link to="/" className="flex items-center">
+            <img src={logo} alt="Fantasy Racer" className="h-8" />
           </Link>
           
           <div className="flex gap-1">
