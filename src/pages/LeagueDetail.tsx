@@ -159,35 +159,35 @@ export default function LeagueDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="container py-8">
-        <Button variant="ghost" onClick={() => navigate('/leagues')} className="mb-4">
+      <div className="container py-6 px-4 sm:py-8 sm:px-6">
+        <Button variant="ghost" onClick={() => navigate('/leagues')} className="mb-4 -ml-2">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Leagues
+          Back
         </Button>
 
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-8">
+        <div className="flex flex-col gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Trophy className="h-8 w-8" />
-              {league.name}
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2 sm:gap-3">
+              <Trophy className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
+              <span className="break-words">{league.name}</span>
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               {seriesLabels[league.series]} • {league.season} Season
             </p>
             {league.description && (
-              <p className="text-muted-foreground mt-2">{league.description}</p>
+              <p className="text-sm text-muted-foreground mt-2">{league.description}</p>
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <Users className="h-4 w-4 mr-2" />
                   Invite
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="mx-4 sm:mx-0">
                 <DialogHeader>
                   <DialogTitle>Invite Friends</DialogTitle>
                   <DialogDescription>
@@ -206,56 +206,60 @@ export default function LeagueDetail() {
               </DialogContent>
             </Dialog>
 
-            <Button onClick={() => navigate(`/leagues/${leagueId}/picks`)}>
+            <Button onClick={() => navigate(`/leagues/${leagueId}/picks`)} className="w-full sm:w-auto">
               Manage Picks
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Standings</CardTitle>
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2 overflow-hidden">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">Standings</CardTitle>
               <CardDescription>Current season rankings</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Member</TableHead>
-                    <TableHead className="text-center">Picks Made</TableHead>
-                    <TableHead className="text-right">Points</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map((member, index) => (
-                    <TableRow key={member.id}>
-                      <TableCell className="font-medium">
-                        {index === 0 && members.length > 1 && member.total_points > 0 ? (
-                          <span className="text-yellow-500">🏆</span>
-                        ) : (
-                          index + 1
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>{member.profile?.display_name || 'Unknown'}</span>
-                          {member.user_id === league.owner_id && (
-                            <span title="League Owner"><Crown className="h-4 w-4 text-yellow-500" /></span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline">{member.pickCount}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        {member.total_points}
-                      </TableCell>
+            <CardContent className="p-0 sm:p-6 sm:pt-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10 sm:w-12 pl-4 sm:pl-4">#</TableHead>
+                      <TableHead>Member</TableHead>
+                      <TableHead className="text-center hidden sm:table-cell">Picks</TableHead>
+                      <TableHead className="text-right pr-4 sm:pr-4">Pts</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member, index) => (
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium pl-4 sm:pl-4">
+                          {index === 0 && members.length > 1 && member.total_points > 0 ? (
+                            <span className="text-yellow-500">🏆</span>
+                          ) : (
+                            index + 1
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <span className="truncate max-w-[120px] sm:max-w-none">{member.profile?.display_name || 'Unknown'}</span>
+                            {member.user_id === league.owner_id && (
+                              <span title="League Owner">
+                                <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 flex-shrink-0" />
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center hidden sm:table-cell">
+                          <Badge variant="outline">{member.pickCount}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold pr-4 sm:pr-4">
+                          {member.total_points}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
