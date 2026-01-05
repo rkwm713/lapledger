@@ -99,35 +99,48 @@ async function fetchTopFinishers(raceId: number, series: SeriesType, season: str
 }
 
 export async function getSeasonRaces(series: SeriesType, season: string): Promise<Race[]> {
-  const data = await callProxy('racelist', { series, season }) as Record<string, unknown>[];
+  const data = await callProxy('racelist', { series, season });
   
   if (!Array.isArray(data)) {
-    console.warn('Unexpected racelist response format:', data);
+    console.error('Invalid race list response:', data);
     return [];
   }
+
+  const races = data.map((raw: Record<string, unknown>) => transformRace(raw));
   
-  const races = data
-    .map(transformRace)
-    .sort((a, b) => new Date(b.raceDate).getTime() - new Date(a.raceDate).getTime());
-  
-  // Fetch top 3 finishers for completed races in parallel
-  const completedRaces = races.filter(r => r.isComplete);
+  // Sort races: upcoming races first (chronologically), then completed races (most recent first)
+  const now = new Date();
+  races.sort((a, b) => {
+    const dateA = new Date(a.raceDate);
+    const dateB = new Date(b.raceDate);
+    const aIsUpcoming = dateA > now && !a.isComplete;
+    const bIsUpcoming = dateB > now && !b.isComplete;
+    
+    // Both upcoming: sort chronologically (soonest first)
+    if (aIsUpcoming && bIsUpcoming) {
+      return dateA.getTime() - dateB.getTime();
+    }
+    // Both completed: sort reverse chronologically (most recent first)  
+    if (!aIsUpcoming && !bIsUpcoming) {
+      return dateB.getTime() - dateA.getTime();
+    }
+    // Upcoming races come before completed
+    return aIsUpcoming ? -1 : 1;
+  });
+
+  // Fetch top finishers for completed races (limit to last 10 for performance)
+  const completedRaces = races.filter(r => r.isComplete).slice(0, 10);
   const topFinishersPromises = completedRaces.map(race => 
-    fetchTopFinishers(race.raceId, series, season)
+    fetchTopFinishers(race.raceId, series, season).catch(() => [])
   );
   
   const topFinishersResults = await Promise.all(topFinishersPromises);
   
-  // Merge top finishers back into races
-  const topFinishersMap = new Map<number, TopFinisher[]>();
   completedRaces.forEach((race, index) => {
-    topFinishersMap.set(race.raceId, topFinishersResults[index]);
+    race.topFinishers = topFinishersResults[index];
   });
-  
-  return races.map(race => ({
-    ...race,
-    topFinishers: topFinishersMap.get(race.raceId),
-  }));
+
+  return races;
 }
 
 export async function getRaceDetails(raceId: string, series: SeriesType = 'cup', season: string = new Date().getFullYear().toString()): Promise<RaceDetails | null> {

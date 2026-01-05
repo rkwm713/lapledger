@@ -7,6 +7,7 @@ import { RaceCard } from "@/components/RaceCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { getSeasonRaces } from "@/lib/nascar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SeriesType } from "@/lib/types";
 
 const Index = () => {
@@ -19,6 +20,7 @@ const Index = () => {
   });
 
   const completedRaces = races?.filter((race) => race.isComplete) || [];
+  const upcomingRaces = races?.filter((race) => !race.isComplete) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,9 +28,9 @@ const Index = () => {
       
       <main className="container py-6 space-y-6">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Recent Results</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Race Schedule</h1>
           <p className="text-muted-foreground">
-            Browse completed NASCAR races and view detailed results.
+            Browse NASCAR races and view detailed results.
           </p>
         </div>
 
@@ -47,19 +49,47 @@ const Index = () => {
           </div>
         )}
 
-        {!isLoading && !error && completedRaces.length === 0 && (
-          <EmptyState
-            title="No completed races found"
-            description={`There are no completed races for the ${season} ${series.toUpperCase()} series yet.`}
-          />
-        )}
+        {!isLoading && !error && (
+          <Tabs defaultValue="upcoming" className="w-full">
+            <TabsList>
+              <TabsTrigger value="upcoming">
+                Upcoming ({upcomingRaces.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed ({completedRaces.length})
+              </TabsTrigger>
+            </TabsList>
 
-        {!isLoading && !error && completedRaces.length > 0 && (
-          <div className="space-y-3">
-            {completedRaces.map((race) => (
-              <RaceCard key={race.raceId} race={race} series={series} season={season} />
-            ))}
-          </div>
+            <TabsContent value="upcoming" className="mt-4">
+              {upcomingRaces.length === 0 ? (
+                <EmptyState
+                  title="No upcoming races"
+                  description={`All races for the ${season} ${series.toUpperCase()} series have been completed.`}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {upcomingRaces.map((race) => (
+                    <RaceCard key={race.raceId} race={race} series={series} season={season} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="completed" className="mt-4">
+              {completedRaces.length === 0 ? (
+                <EmptyState
+                  title="No completed races found"
+                  description={`There are no completed races for the ${season} ${series.toUpperCase()} series yet.`}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {completedRaces.map((race) => (
+                    <RaceCard key={race.raceId} race={race} series={series} season={season} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </main>
     </div>
