@@ -57,7 +57,7 @@ const Index = () => {
         {!isLoading && !error && completedRaces.length > 0 && (
           <div className="space-y-3">
             {completedRaces.map((race) => (
-              <RaceCard key={race.raceId} race={race} />
+              <RaceCard key={race.raceId} race={race} series={series} season={season} />
             ))}
           </div>
         )}

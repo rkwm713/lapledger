@@ -108,7 +108,7 @@ const Search = () => {
               Found {races.length} race{races.length !== 1 ? 's' : ''}
             </p>
             {races.map((race) => (
-              <RaceCard key={race.raceId} race={race} />
+              <RaceCard key={race.raceId} race={race} series={filters.series} season={filters.season} />
             ))}
           </div>
         )}

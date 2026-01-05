@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Navigation } from "@/components/Navigation";
 import { ResultsTable } from "@/components/ResultsTable";
@@ -8,13 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, MapPin, Trophy, Flag } from "lucide-react";
 import { getRaceDetails } from "@/lib/nascar";
+import type { SeriesType } from "@/lib/types";
 
 const RaceDetail = () => {
   const { raceId } = useParams<{ raceId: string }>();
+  const [searchParams] = useSearchParams();
+  
+  const series = (searchParams.get('series') as SeriesType) || 'cup';
+  const season = searchParams.get('season') || new Date().getFullYear().toString();
 
   const { data: race, isLoading, error } = useQuery({
-    queryKey: ['race', raceId],
-    queryFn: () => getRaceDetails(raceId!),
+    queryKey: ['race', raceId, series, season],
+    queryFn: () => getRaceDetails(raceId!, series, season),
     enabled: !!raceId,
   });
 
