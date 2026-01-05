@@ -4,6 +4,7 @@ import { Navigation } from "@/components/Navigation";
 import { SeriesSelector } from "@/components/SeriesSelector";
 import { SeasonSelector } from "@/components/SeasonSelector";
 import { RaceCard } from "@/components/RaceCard";
+import { RaceCountdown } from "@/components/RaceCountdown";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/EmptyState";
 import { getSeasonRaces } from "@/lib/nascar";
@@ -21,6 +22,7 @@ const Index = () => {
 
   const completedRaces = races?.filter((race) => race.isComplete) || [];
   const upcomingRaces = races?.filter((race) => !race.isComplete) || [];
+  const nextRace = upcomingRaces[0];
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,7 +62,15 @@ const Index = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="upcoming" className="mt-4">
+            <TabsContent value="upcoming" className="mt-4 space-y-4">
+              {nextRace && (
+                <RaceCountdown
+                  raceDate={nextRace.raceDate}
+                  raceName={nextRace.raceName}
+                  trackName={nextRace.trackName}
+                  televisionBroadcaster={nextRace.televisionBroadcaster}
+                />
+              )}
               {upcomingRaces.length === 0 ? (
                 <EmptyState
                   title="No upcoming races"

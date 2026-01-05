@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Trophy, Medal } from "lucide-react";
+import { Calendar, MapPin, Trophy, Medal, Tv } from "lucide-react";
 import type { Race, SeriesType } from "@/lib/types";
 
 interface RaceCardProps {
@@ -25,12 +25,15 @@ function getPositionStyle(position: number) {
 }
 
 export function RaceCard({ race, series, season }: RaceCardProps) {
-  const formattedDate = race.raceDate
-    ? new Date(race.raceDate).toLocaleDateString('en-US', {
+  const formattedDateTime = race.raceDate
+    ? new Date(race.raceDate).toLocaleString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
         year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
       })
     : 'Date TBD';
 
@@ -55,8 +58,14 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {formattedDate}
+                {formattedDateTime}
               </span>
+              {race.televisionBroadcaster && (
+                <span className="flex items-center gap-1">
+                  <Tv className="h-4 w-4" />
+                  {race.televisionBroadcaster}
+                </span>
+              )}
             </div>
             
             {race.topFinishers && race.topFinishers.length > 0 && (

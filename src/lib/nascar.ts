@@ -47,6 +47,8 @@ function transformRace(raw: Record<string, unknown>): Race {
     winner,
     winnerCarNumber: undefined,
     isComplete,
+    televisionBroadcaster: raw.television_broadcaster ? String(raw.television_broadcaster) : undefined,
+    radioBroadcaster: raw.radio_broadcaster ? String(raw.radio_broadcaster) : undefined,
   };
 }
 
