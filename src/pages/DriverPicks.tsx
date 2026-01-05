@@ -138,51 +138,29 @@ export default function DriverPicks() {
 
     setRaces(racesWithPicks);
 
-    // Fetch drivers from race results
-    await fetchDrivers(leagueData.series as SeriesType, leagueData.season, raceList);
+    // Fetch drivers from NASCAR Driver Points API
+    await fetchDrivers(leagueData.series as SeriesType, leagueData.season);
 
     setLoading(false);
   }
 
-  async function fetchDrivers(series: SeriesType, season: number, raceList: Race[]) {
+  async function fetchDrivers(series: SeriesType, season: number) {
     try {
-      // Find a completed race to get driver data from
-      let completedRace = raceList.find(r => r.isComplete);
-      let targetSeason = season;
-      
-      // If no completed races in the current season, fetch from previous season
-      if (!completedRace) {
-        const lastSeasonRaces = await getSeasonRaces(series, String(season - 1));
-        completedRace = lastSeasonRaces.find(r => r.isComplete);
-        targetSeason = season - 1;
-      }
-      
-      if (!completedRace) return;
-
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=racedetails&series=${series}&season=${targetSeason}&raceId=${completedRace.raceId}`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=driverlist&series=${series}&season=${season}`
       );
       const data = await response.json();
       
-      // Handle nested response structure: weekend_race[0].results
-      const weekendRace = data.weekend_race?.[0];
-      const results = weekendRace?.results || data.results || [];
-      
-      if (results.length > 0) {
-        const uniqueDrivers = new Map<number, DriverOption>();
-        results.forEach((r: any) => {
-          const driverId = r.driver_id;
-          if (driverId && !uniqueDrivers.has(driverId)) {
-            uniqueDrivers.set(driverId, {
-              driver_id: driverId,
-              driver_name: r.driver_fullname || r.driverName || '',
-              car_number: r.car_number || r.carNumber || '',
-              team_name: r.team_name || r.teamName || ''
-            });
-          }
-        });
-        // Sort drivers alphabetically by name
-        setDrivers(Array.from(uniqueDrivers.values()).sort((a, b) => 
+      if (Array.isArray(data) && data.length > 0) {
+        const driverOptions: DriverOption[] = data.map((d: any) => ({
+          driver_id: d.driver_id,
+          driver_name: d.driver_name || `${d.driver_first_name} ${d.driver_last_name}`,
+          car_number: d.car_number || '',
+          team_name: d.team_name || ''
+        }));
+        
+        // Sort alphabetically by name
+        setDrivers(driverOptions.sort((a, b) => 
           a.driver_name.localeCompare(b.driver_name)
         ));
       }
