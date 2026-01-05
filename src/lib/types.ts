@@ -2,6 +2,12 @@
 
 export type SeriesType = 'cup' | 'xfinity' | 'trucks';
 
+export interface TopFinisher {
+  position: number;
+  driverName: string;
+  carNumber?: string;
+}
+
 export interface Race {
   raceId: number;
   raceName: string;
@@ -9,6 +15,7 @@ export interface Race {
   raceDate: string;
   winner?: string;
   winnerCarNumber?: string;
+  topFinishers?: TopFinisher[];
   isComplete: boolean;
 }
 
