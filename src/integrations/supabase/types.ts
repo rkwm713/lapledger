@@ -23,7 +23,9 @@ export type Database = {
           id: string
           league_id: string
           locked_at: string | null
-          pick_order: number
+          race_date: string | null
+          race_id: number | null
+          race_name: string | null
           season: number
           team_name: string | null
           user_id: string
@@ -36,7 +38,9 @@ export type Database = {
           id?: string
           league_id: string
           locked_at?: string | null
-          pick_order: number
+          race_date?: string | null
+          race_id?: number | null
+          race_name?: string | null
           season: number
           team_name?: string | null
           user_id: string
@@ -49,7 +53,9 @@ export type Database = {
           id?: string
           league_id?: string
           locked_at?: string | null
-          pick_order?: number
+          race_date?: string | null
+          race_id?: number | null
+          race_name?: string | null
           season?: number
           team_name?: string | null
           user_id?: string
@@ -195,32 +201,32 @@ export type Database = {
       user_race_scores: {
         Row: {
           created_at: string
-          driver_1_points: number | null
-          driver_2_points: number | null
+          driver_id: number | null
+          driver_name: string | null
           id: string
           league_id: string
+          points_earned: number | null
           race_id: number
-          total_points: number | null
           user_id: string
         }
         Insert: {
           created_at?: string
-          driver_1_points?: number | null
-          driver_2_points?: number | null
+          driver_id?: number | null
+          driver_name?: string | null
           id?: string
           league_id: string
+          points_earned?: number | null
           race_id: number
-          total_points?: number | null
           user_id: string
         }
         Update: {
           created_at?: string
-          driver_1_points?: number | null
-          driver_2_points?: number | null
+          driver_id?: number | null
+          driver_name?: string | null
           id?: string
           league_id?: string
+          points_earned?: number | null
           race_id?: number
-          total_points?: number | null
           user_id?: string
         }
         Relationships: [

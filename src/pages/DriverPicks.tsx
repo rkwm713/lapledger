@@ -7,11 +7,10 @@ import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Check, X, Search, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, Search, AlertCircle, Lock, Calendar, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
-import type { SeriesType, RaceResult } from '@/lib/types';
+import type { SeriesType, RaceResult, Race } from '@/lib/types';
 
 interface League {
   id: string;
@@ -28,12 +27,18 @@ interface DriverOption {
 }
 
 interface Pick {
-  id?: string;
+  id: string;
+  race_id: number;
   driver_id: number;
   driver_name: string;
   car_number: string | null;
   team_name: string | null;
-  pick_order: number;
+}
+
+interface RaceWithPick extends Race {
+  pick?: Pick;
+  isLocked: boolean;
+  points?: number;
 }
 
 export default function DriverPicks() {
@@ -41,14 +46,13 @@ export default function DriverPicks() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
+  const [races, setRaces] = useState<RaceWithPick[]>([]);
   const [picks, setPicks] = useState<Pick[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectingSlot, setSelectingSlot] = useState<number | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
-  const [lockDate, setLockDate] = useState<Date | null>(null);
+  const [selectingRaceId, setSelectingRaceId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,6 +65,12 @@ export default function DriverPicks() {
       fetchData();
     }
   }, [user, leagueId]);
+
+  // Calculate driver usage (how many times each driver has been picked)
+  const driverUsage = picks.reduce((acc, pick) => {
+    acc[pick.driver_id] = (acc[pick.driver_id] || 0) + 1;
+    return acc;
+  }, {} as Record<number, number>);
 
   async function fetchData() {
     setLoading(true);
@@ -87,64 +97,62 @@ export default function DriverPicks() {
       .eq('user_id', user!.id)
       .eq('season', leagueData.season);
 
-    if (picksData) {
-      setPicks(picksData.map(p => ({
-        id: p.id,
-        driver_id: p.driver_id,
-        driver_name: p.driver_name,
-        car_number: p.car_number,
-        team_name: p.team_name,
-        pick_order: p.pick_order
-      })));
-    }
+    const userPicks: Pick[] = (picksData || []).map(p => ({
+      id: p.id,
+      race_id: p.race_id!,
+      driver_id: p.driver_id,
+      driver_name: p.driver_name,
+      car_number: p.car_number,
+      team_name: p.team_name
+    }));
+    setPicks(userPicks);
+
+    // Fetch race scores for completed races
+    const { data: scoresData } = await supabase
+      .from('user_race_scores')
+      .select('race_id, points_earned')
+      .eq('league_id', leagueId)
+      .eq('user_id', user!.id);
+
+    const scoresByRace = (scoresData || []).reduce((acc, s) => {
+      acc[s.race_id] = s.points_earned || 0;
+      return acc;
+    }, {} as Record<number, number>);
+
+    // Fetch races for the season
+    const raceList = await getSeasonRaces(leagueData.series as SeriesType, leagueData.season.toString());
+    const now = new Date();
+    
+    const racesWithPicks: RaceWithPick[] = raceList.map(race => {
+      const raceDate = race.raceDate ? new Date(race.raceDate) : null;
+      const isLocked = raceDate ? now >= raceDate : false;
+      const pick = userPicks.find(p => p.race_id === race.raceId);
+      
+      return {
+        ...race,
+        pick,
+        isLocked,
+        points: scoresByRace[race.raceId]
+      };
+    });
+
+    setRaces(racesWithPicks);
 
     // Fetch drivers from race results
-    await fetchDrivers(leagueData.series as SeriesType, leagueData.season);
-
-    // Check if picks are locked (first race started)
-    const races = await getSeasonRaces(leagueData.series as SeriesType, leagueData.season.toString());
-    const firstRace = races.find(r => r.raceDate);
-    if (firstRace?.raceDate) {
-      const raceDate = new Date(firstRace.raceDate);
-      setLockDate(raceDate);
-      setIsLocked(new Date() >= raceDate);
-    }
+    await fetchDrivers(leagueData.series as SeriesType, leagueData.season, raceList);
 
     setLoading(false);
   }
 
-  async function fetchDrivers(series: SeriesType, season: number) {
+  async function fetchDrivers(series: SeriesType, season: number, raceList: Race[]) {
     try {
-      const races = await getSeasonRaces(series, season.toString());
-      const completedRace = races.find(r => r.isComplete);
+      const completedRace = raceList.find(r => r.isComplete);
+      const targetRace = completedRace || raceList[0];
       
-      if (!completedRace) {
-        // No completed races yet, try to get drivers from proxy directly
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=racedetails&series=${series}&season=${season}&raceId=${races[0]?.raceId || 1}`
-        );
-        const data = await response.json();
-        
-        if (data.results) {
-          const uniqueDrivers = new Map<number, DriverOption>();
-          data.results.forEach((r: RaceResult & { driver_id?: number }) => {
-            if (r.driver_id && !uniqueDrivers.has(r.driver_id)) {
-              uniqueDrivers.set(r.driver_id, {
-                driver_id: r.driver_id,
-                driver_name: r.driverName,
-                car_number: r.carNumber,
-                team_name: r.teamName || ''
-              });
-            }
-          });
-          setDrivers(Array.from(uniqueDrivers.values()));
-        }
-        return;
-      }
+      if (!targetRace) return;
 
-      // Fetch results from a completed race to get driver list
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=racedetails&series=${series}&season=${season}&raceId=${completedRace.raceId}`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=racedetails&series=${series}&season=${season}&raceId=${targetRace.raceId}`
       );
       const data = await response.json();
       
@@ -167,23 +175,26 @@ export default function DriverPicks() {
     }
   }
 
-  async function selectDriver(driver: DriverOption, slot: number) {
-    if (isLocked) {
-      toast.error('Picks are locked for this season');
+  async function selectDriver(driver: DriverOption, raceId: number) {
+    const race = races.find(r => r.raceId === raceId);
+    if (!race || race.isLocked) {
+      toast.error('This race is locked');
       return;
     }
 
-    // Check if driver already picked
-    if (picks.some(p => p.driver_id === driver.driver_id)) {
-      toast.error('You already picked this driver');
+    // Check driver usage limit (max 2 per season)
+    const currentUsage = driverUsage[driver.driver_id] || 0;
+    const existingPickForRace = picks.find(p => p.race_id === raceId);
+    
+    // If updating pick for this race with same driver, no need to check
+    if (existingPickForRace?.driver_id !== driver.driver_id && currentUsage >= 2) {
+      toast.error(`You've already used ${driver.driver_name} twice this season`);
       return;
     }
-
-    const existingPick = picks.find(p => p.pick_order === slot);
 
     setSaving(true);
 
-    if (existingPick?.id) {
+    if (existingPickForRace) {
       // Update existing pick
       const { error } = await supabase
         .from('driver_picks')
@@ -193,7 +204,7 @@ export default function DriverPicks() {
           car_number: driver.car_number,
           team_name: driver.team_name
         })
-        .eq('id', existingPick.id);
+        .eq('id', existingPickForRace.id);
 
       if (error) {
         toast.error('Failed to update pick');
@@ -207,11 +218,13 @@ export default function DriverPicks() {
         .insert({
           league_id: leagueId,
           user_id: user!.id,
+          race_id: raceId,
+          race_name: race.raceName,
+          race_date: race.raceDate,
           driver_id: driver.driver_id,
           driver_name: driver.driver_name,
           car_number: driver.car_number,
           team_name: driver.team_name,
-          pick_order: slot,
           season: league!.season
         });
 
@@ -222,38 +235,22 @@ export default function DriverPicks() {
       }
     }
 
-    // Refresh picks
-    const { data } = await supabase
-      .from('driver_picks')
-      .select('*')
-      .eq('league_id', leagueId)
-      .eq('user_id', user!.id)
-      .eq('season', league!.season);
-
-    if (data) {
-      setPicks(data.map(p => ({
-        id: p.id,
-        driver_id: p.driver_id,
-        driver_name: p.driver_name,
-        car_number: p.car_number,
-        team_name: p.team_name,
-        pick_order: p.pick_order
-      })));
-    }
-
+    // Refresh data
+    await fetchData();
     toast.success('Pick saved!');
-    setSelectingSlot(null);
+    setSelectingRaceId(null);
     setSaving(false);
   }
 
-  async function removePick(slot: number) {
-    if (isLocked) {
-      toast.error('Picks are locked for this season');
+  async function removePick(raceId: number) {
+    const race = races.find(r => r.raceId === raceId);
+    if (!race || race.isLocked) {
+      toast.error('This race is locked');
       return;
     }
 
-    const pick = picks.find(p => p.pick_order === slot);
-    if (!pick?.id) return;
+    const pick = picks.find(p => p.race_id === raceId);
+    if (!pick) return;
 
     setSaving(true);
     const { error } = await supabase
@@ -264,7 +261,7 @@ export default function DriverPicks() {
     if (error) {
       toast.error('Failed to remove pick');
     } else {
-      setPicks(picks.filter(p => p.pick_order !== slot));
+      await fetchData();
       toast.success('Pick removed');
     }
     setSaving(false);
@@ -275,6 +272,10 @@ export default function DriverPicks() {
     d.car_number.includes(searchQuery) ||
     d.team_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Get unique drivers that have been picked
+  const pickedDriverIds = [...new Set(picks.map(p => p.driver_id))];
+  const usedDrivers = drivers.filter(d => pickedDriverIds.includes(d.driver_id));
 
   if (authLoading || loading) {
     return (
@@ -289,8 +290,7 @@ export default function DriverPicks() {
 
   if (!league) return null;
 
-  const pick1 = picks.find(p => p.pick_order === 1);
-  const pick2 = picks.find(p => p.pick_order === 2);
+  const totalPoints = races.reduce((sum, r) => sum + (r.points || 0), 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -302,130 +302,178 @@ export default function DriverPicks() {
         </Button>
 
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Select Your Drivers</h1>
+          <h1 className="text-3xl font-bold">Your Picks - {league.season}</h1>
           <p className="text-muted-foreground mt-1">
-            Choose 2 drivers for the {league.season} season
+            Pick 1 driver per race. Each driver can be used max 2 times per season.
           </p>
-          {isLocked && (
-            <div className="mt-4 flex items-center gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md">
-              <AlertCircle className="h-5 w-5" />
-              <span>Picks are locked for this season. The first race has already started.</span>
-            </div>
-          )}
-          {!isLocked && lockDate && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Picks lock on {lockDate.toLocaleDateString()} at {lockDate.toLocaleTimeString()}
-            </p>
-          )}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2 mb-8">
-          {[1, 2].map((slot) => {
-            const pick = slot === 1 ? pick1 : pick2;
-            const isSelecting = selectingSlot === slot;
+        {/* Driver Usage Tracker */}
+        {usedDrivers.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Driver Usage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {usedDrivers.map(driver => {
+                  const usage = driverUsage[driver.driver_id] || 0;
+                  return (
+                    <Badge 
+                      key={driver.driver_id} 
+                      variant={usage >= 2 ? 'destructive' : 'secondary'}
+                    >
+                      {driver.driver_name} {usage}/2
+                    </Badge>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Season Total */}
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-medium">Season Total</span>
+              <span className="text-2xl font-bold">{totalPoints} pts</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Race List */}
+        <div className="space-y-3">
+          {races.map((race) => {
+            const isSelecting = selectingRaceId === race.raceId;
+            const raceDate = race.raceDate ? new Date(race.raceDate) : null;
 
             return (
-              <Card key={slot} className={isSelecting ? 'ring-2 ring-primary' : ''}>
-                <CardHeader>
-                  <CardTitle>Driver {slot}</CardTitle>
-                  <CardDescription>
-                    {pick ? 'Your selected driver' : 'Select a driver'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {pick ? (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-lg">#{pick.car_number} {pick.driver_name}</p>
-                        <p className="text-muted-foreground">{pick.team_name}</p>
+              <Card key={race.raceId} className={isSelecting ? 'ring-2 ring-primary' : ''}>
+                <CardContent className="py-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{race.raceName}</span>
+                        {race.isComplete && <Badge variant="outline">Complete</Badge>}
+                        {race.isLocked && !race.isComplete && (
+                          <Badge variant="secondary">
+                            <Lock className="h-3 w-3 mr-1" />
+                            Locked
+                          </Badge>
+                        )}
                       </div>
-                      {!isLocked && (
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setSelectingSlot(slot)}
-                            disabled={saving}
-                          >
-                            Change
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="icon"
-                            onClick={() => removePick(slot)}
-                            disabled={saving}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                      {raceDate && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                          <Calendar className="h-3 w-3" />
+                          {raceDate.toLocaleDateString()} at {raceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      {race.pick ? (
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="font-medium">#{race.pick.car_number} {race.pick.driver_name}</p>
+                            <p className="text-sm text-muted-foreground">{race.pick.team_name}</p>
+                          </div>
+                          {race.isComplete && race.points !== undefined && (
+                            <Badge variant="default" className="flex items-center gap-1">
+                              <Trophy className="h-3 w-3" />
+                              {race.points} pts
+                            </Badge>
+                          )}
+                          {!race.isLocked && (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectingRaceId(isSelecting ? null : race.raceId)}
+                                disabled={saving}
+                              >
+                                Change
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => removePick(race.raceId)}
+                                disabled={saving}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : race.isLocked ? (
+                        <span className="text-muted-foreground text-sm">No pick made</span>
+                      ) : (
+                        <Button
+                          onClick={() => setSelectingRaceId(isSelecting ? null : race.raceId)}
+                          variant={isSelecting ? 'secondary' : 'default'}
+                          size="sm"
+                        >
+                          {isSelecting ? 'Cancel' : 'Select Driver'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Driver Selection Panel */}
+                  {isSelecting && (
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search drivers..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      
+                      {drivers.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-4">
+                          No driver data available yet.
+                        </p>
+                      ) : (
+                        <div className="grid gap-2 max-h-64 overflow-y-auto">
+                          {filteredDrivers.map((driver) => {
+                            const usage = driverUsage[driver.driver_id] || 0;
+                            const isMaxedOut = usage >= 2;
+                            const isCurrentPick = race.pick?.driver_id === driver.driver_id;
+                            
+                            return (
+                              <Button
+                                key={driver.driver_id}
+                                variant="outline"
+                                className="justify-between h-auto py-2"
+                                onClick={() => selectDriver(driver, race.raceId)}
+                                disabled={isMaxedOut && !isCurrentPick || saving}
+                              >
+                                <div className="text-left">
+                                  <span className="font-medium">#{driver.car_number} {driver.driver_name}</span>
+                                  <span className="block text-xs text-muted-foreground">{driver.team_name}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={isMaxedOut ? 'destructive' : 'outline'} className="text-xs">
+                                    {usage}/2
+                                  </Badge>
+                                  {isCurrentPick && <Check className="h-4 w-4 text-primary" />}
+                                </div>
+                              </Button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <Button 
-                      onClick={() => setSelectingSlot(isSelecting ? null : slot)}
-                      variant={isSelecting ? 'secondary' : 'default'}
-                      disabled={isLocked}
-                    >
-                      {isSelecting ? 'Cancel' : 'Select Driver'}
-                    </Button>
                   )}
                 </CardContent>
               </Card>
             );
           })}
         </div>
-
-        {selectingSlot !== null && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Drivers</CardTitle>
-              <CardDescription>
-                Select a driver for slot {selectingSlot}
-              </CardDescription>
-              <div className="relative mt-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search drivers..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {drivers.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  No driver data available yet. Check back when the season starts.
-                </p>
-              ) : (
-                <div className="grid gap-2 max-h-96 overflow-y-auto">
-                  {filteredDrivers.map((driver) => {
-                    const isAlreadyPicked = picks.some(p => p.driver_id === driver.driver_id);
-                    return (
-                      <Button
-                        key={driver.driver_id}
-                        variant="outline"
-                        className="justify-between h-auto py-3"
-                        onClick={() => selectDriver(driver, selectingSlot)}
-                        disabled={isAlreadyPicked || saving}
-                      >
-                        <div className="text-left">
-                          <span className="font-semibold">#{driver.car_number} {driver.driver_name}</span>
-                          <span className="block text-sm text-muted-foreground">{driver.team_name}</span>
-                        </div>
-                        {isAlreadyPicked ? (
-                          <Badge variant="secondary">Already Picked</Badge>
-                        ) : (
-                          <Check className="h-4 w-4 opacity-0 group-hover:opacity-100" />
-                        )}
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

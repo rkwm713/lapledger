@@ -31,11 +31,8 @@ interface Member {
     display_name: string;
     avatar_url: string | null;
   } | null;
-  picks: {
-    driver_name: string;
-    pick_order: number;
-  }[];
-  total_points?: number;
+  pickCount: number;
+  total_points: number;
 }
 
 export default function LeagueDetail() {
@@ -88,7 +85,7 @@ export default function LeagueDetail() {
       return;
     }
 
-    // Fetch profiles and picks for each member
+    // Fetch profiles and scores for each member
     const membersWithDetails = await Promise.all(
       (membersData || []).map(async (member) => {
         const { data: profile } = await supabase
@@ -97,33 +94,34 @@ export default function LeagueDetail() {
           .eq('id', member.user_id)
           .maybeSingle();
 
-        const { data: picks } = await supabase
+        // Count picks
+        const { count: pickCount } = await supabase
           .from('driver_picks')
-          .select('driver_name, pick_order')
+          .select('*', { count: 'exact', head: true })
           .eq('league_id', leagueId)
           .eq('user_id', member.user_id)
           .eq('season', leagueData.season);
 
-        // Calculate total points
+        // Calculate total points from user_race_scores
         const { data: scores } = await supabase
           .from('user_race_scores')
-          .select('total_points')
+          .select('points_earned')
           .eq('league_id', leagueId)
           .eq('user_id', member.user_id);
 
-        const totalPoints = scores?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
+        const totalPoints = scores?.reduce((sum, s) => sum + (s.points_earned || 0), 0) || 0;
 
         return {
           ...member,
           profile,
-          picks: picks || [],
+          pickCount: pickCount || 0,
           total_points: totalPoints
         };
       })
     );
 
     // Sort by points descending
-    membersWithDetails.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+    membersWithDetails.sort((a, b) => b.total_points - a.total_points);
     setMembers(membersWithDetails);
     setLoading(false);
   }
@@ -226,7 +224,7 @@ export default function LeagueDetail() {
                   <TableRow>
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Member</TableHead>
-                    <TableHead>Drivers</TableHead>
+                    <TableHead className="text-center">Picks Made</TableHead>
                     <TableHead className="text-right">Points</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -234,7 +232,7 @@ export default function LeagueDetail() {
                   {members.map((member, index) => (
                     <TableRow key={member.id}>
                       <TableCell className="font-medium">
-                        {index === 0 && members.length > 1 ? (
+                        {index === 0 && members.length > 1 && member.total_points > 0 ? (
                           <span className="text-yellow-500">🏆</span>
                         ) : (
                           index + 1
@@ -248,23 +246,11 @@ export default function LeagueDetail() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {member.picks.length > 0 ? (
-                          <div className="flex gap-1">
-                            {member.picks
-                              .sort((a, b) => a.pick_order - b.pick_order)
-                              .map((pick) => (
-                                <Badge key={pick.pick_order} variant="secondary">
-                                  {pick.driver_name}
-                                </Badge>
-                              ))}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">No picks yet</span>
-                        )}
+                      <TableCell className="text-center">
+                        <Badge variant="outline">{member.pickCount}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-bold">
-                        {member.total_points || 0}
+                        {member.total_points}
                       </TableCell>
                     </TableRow>
                   ))}
