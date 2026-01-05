@@ -123,33 +123,65 @@ serve(async (req) => {
         
         data = getCached(cacheKey, cacheDuration);
         if (!data) {
-          const apiUrl = `https://feed.nascar.com/api/DriverPoints?series_id=${seriesId}&race_season=${season}`;
-          console.log(`Fetching driver list: ${apiUrl}`);
+          // Try current season first using cf.nascar.com cacher API (same as race list)
+          // Get a completed race from previous season to extract drivers
+          const fallbackSeason = String(parseInt(season) - 1);
+          const raceListUrl = `https://cf.nascar.com/cacher/${fallbackSeason}/${seriesId}/race_list_basic.json`;
+          console.log(`Fetching race list for driver extraction: ${raceListUrl}`);
           
-          let response = await fetch(apiUrl, {
-            headers: { 
-              'Accept': 'application/json',
-              'User-Agent': 'NASCAR-Results-App/1.0',
-            },
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          let driverData = await response.json();
-          
-          // If no data or empty array, fallback to previous season
-          if (!response.ok || !Array.isArray(driverData) || driverData.length === 0) {
-            console.log(`Driver list not available for ${season}, trying ${parseInt(season) - 1}`);
-            const fallbackUrl = `https://feed.nascar.com/api/DriverPoints?series_id=${seriesId}&race_season=${parseInt(season) - 1}`;
-            const fallbackResponse = await fetch(fallbackUrl, {
+          try {
+            const raceListResponse = await fetch(raceListUrl, {
               headers: { 'Accept': 'application/json', 'User-Agent': 'NASCAR-Results-App/1.0' },
               signal: AbortSignal.timeout(10000),
             });
-            if (fallbackResponse.ok) {
-              driverData = await fallbackResponse.json();
+            
+            if (raceListResponse.ok) {
+              const races = await raceListResponse.json();
+              // Find a completed race (one with winner_driver_id set)
+              const completedRace = Array.isArray(races) ? races.find((r: any) => r.winner_driver_id) : null;
+              
+              if (completedRace) {
+                const raceDetailsUrl = `https://cf.nascar.com/cacher/${fallbackSeason}/${seriesId}/${completedRace.race_id}/weekend-feed.json`;
+                console.log(`Fetching race details for drivers: ${raceDetailsUrl}`);
+                
+                const raceResponse = await fetch(raceDetailsUrl, {
+                  headers: { 'Accept': 'application/json', 'User-Agent': 'NASCAR-Results-App/1.0' },
+                  signal: AbortSignal.timeout(10000),
+                });
+                
+                if (raceResponse.ok) {
+                  const raceData = await raceResponse.json();
+                  const weekendRace = raceData.weekend_race?.[0];
+                  const results = weekendRace?.results || [];
+                  
+                  // Extract unique drivers
+                  const uniqueDrivers = new Map();
+                  results.forEach((r: any) => {
+                    if (r.driver_id && !uniqueDrivers.has(r.driver_id)) {
+                      uniqueDrivers.set(r.driver_id, {
+                        driver_id: r.driver_id,
+                        driver_name: r.driver_fullname || `${r.driver_first_name || ''} ${r.driver_last_name || ''}`.trim(),
+                        car_number: r.car_number || '',
+                        team_name: r.team_name || ''
+                      });
+                    }
+                  });
+                  
+                  data = Array.from(uniqueDrivers.values());
+                  console.log(`Extracted ${(data as any[]).length} drivers from race ${completedRace.race_id}`);
+                }
+              }
             }
+          } catch (fetchError) {
+            console.error('Error fetching drivers from race data:', fetchError);
           }
           
-          data = driverData;
+          // If still no data, return empty array
+          if (!data) {
+            console.log('No driver data available, returning empty array');
+            data = [];
+          }
+          
           setCache(cacheKey, data);
         }
         break;
