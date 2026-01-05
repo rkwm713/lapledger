@@ -44,30 +44,30 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
       {/* Hover accent stripe */}
       <div className="h-0.5 nascar-stripe opacity-0 group-hover:opacity-100 transition-opacity" />
       
-      <CardContent className="p-4">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex flex-col gap-3">
           <div className="space-y-2 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-lg">{race.raceName}</h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-base sm:text-lg leading-tight">{race.raceName}</h3>
               {race.isComplete && (
-                <Badge variant="default" className="text-xs bg-success hover:bg-success/90">
+                <Badge variant="default" className="text-xs bg-success hover:bg-success/90 shrink-0">
                   Complete
                 </Badge>
               )}
             </div>
             
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {race.trackName}
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span className="truncate">{race.trackName}</span>
               </span>
               <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {formattedDateTime}
+                <Calendar className="h-4 w-4 shrink-0" />
+                <span className="truncate">{formattedDateTime}</span>
               </span>
               {race.televisionBroadcaster && (
                 <span className="flex items-center gap-1">
-                  <Tv className="h-4 w-4" />
+                  <Tv className="h-4 w-4 shrink-0" />
                   {race.televisionBroadcaster}
                 </span>
               )}
@@ -78,11 +78,11 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
                 {race.topFinishers.map((finisher) => (
                   <div key={finisher.position} className="flex items-center gap-1 text-sm">
                     {finisher.position === 1 ? (
-                      <Trophy className={`h-4 w-4 ${getPositionStyle(finisher.position)}`} />
+                      <Trophy className={`h-4 w-4 shrink-0 ${getPositionStyle(finisher.position)}`} />
                     ) : (
-                      <Medal className={`h-4 w-4 ${getPositionStyle(finisher.position)}`} />
+                      <Medal className={`h-4 w-4 shrink-0 ${getPositionStyle(finisher.position)}`} />
                     )}
-                    <span className="font-medium">{finisher.driverName}</span>
+                    <span className="font-medium truncate">{finisher.driverName}</span>
                     {finisher.carNumber && (
                       <span className="text-muted-foreground">(#{finisher.carNumber})</span>
                     )}
@@ -92,7 +92,7 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
             )}
           </div>
           
-          <Button asChild variant="outline" size="sm" className="group-hover:border-primary group-hover:text-primary transition-colors">
+          <Button asChild variant="outline" size="sm" className="w-full sm:w-auto sm:self-end group-hover:border-primary group-hover:text-primary transition-colors">
             <Link to={detailUrl} state={{ race, series, season }}>View Details</Link>
           </Button>
         </div>

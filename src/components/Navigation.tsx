@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MobileNav } from "./MobileNav";
 
 export function Navigation() {
   const location = useLocation();
@@ -28,13 +29,17 @@ export function Navigation() {
       <div className="h-1 nascar-stripe" />
       
       <nav className="border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 shadow-sm">
-        <div className="container flex h-14 items-center justify-between">
-          <div className="flex items-center gap-6">
+        <div className="container flex h-14 items-center justify-between px-4">
+          <div className="flex items-center gap-4 md:gap-6">
+            {/* Mobile hamburger menu */}
+            <MobileNav />
+            
             <Link to="/" className="flex items-center">
               <img src={logo} alt="LapLedger" className="h-8 sm:h-10" />
             </Link>
             
-            <div className="flex gap-1">
+            {/* Desktop navigation */}
+            <div className="hidden md:flex gap-1">
               {links.map((link) => {
                 const Icon = link.icon;
                 const isActive = location.pathname === link.to || 
@@ -58,7 +63,8 @@ export function Navigation() {
             </div>
           </div>
 
-          <div>
+          {/* Desktop auth buttons */}
+          <div className="hidden md:block">
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

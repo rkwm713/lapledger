@@ -94,11 +94,11 @@ export function FiltersForm({ initialFilters, onSearch, isLoading }: FiltersForm
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <Button type="submit" disabled={isLoading}>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
           {isLoading ? 'Searching...' : 'Search'}
         </Button>
-        <Button type="button" variant="outline" onClick={handleReset}>
+        <Button type="button" variant="outline" onClick={handleReset} className="w-full sm:w-auto">
           Reset
         </Button>
       </div>
