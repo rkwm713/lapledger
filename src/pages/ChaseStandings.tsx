@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigation } from "@/components/Navigation";
@@ -15,6 +14,10 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ChaseBracket } from "@/components/ChaseBracket";
 import { ChaseStatusCard } from "@/components/ChaseStatusCard";
 import { EliminationLine } from "@/components/EliminationLine";
+import { TiebreakerTooltip } from "@/components/TiebreakerTooltip";
+import { TiebreakerBadge } from "@/components/TiebreakerBadge";
+import { TiebreakerLegend } from "@/components/TiebreakerLegend";
+import { sortByTiebreakers, getTiebreakerLevel, wasDecidedByTiebreaker, TiebreakerLevel } from "@/lib/tiebreakers";
 import { ChasePlayer, ChaseRound, CHASE_ROUND_NAMES, CHASE_ROUND_REMAINING } from "@/lib/chase-types";
 import { cn } from "@/lib/utils";
 
@@ -142,22 +145,15 @@ export default function ChaseStandings() {
         }
       }
 
-      // Sort by playoff points, then tiebreakers
-      playerData.sort((a, b) => {
-        if (b.playoff_points !== a.playoff_points) return b.playoff_points - a.playoff_points;
-        if (b.race_wins !== a.race_wins) return b.race_wins - a.race_wins;
-        if (b.top_5s !== a.top_5s) return b.top_5s - a.top_5s;
-        if (b.top_10s !== a.top_10s) return b.top_10s - a.top_10s;
-        if (b.top_15s !== a.top_15s) return b.top_15s - a.top_15s;
-        return b.top_20s - a.top_20s;
-      });
+      // Sort using shared tiebreaker utility (for Chase, use playoff points)
+      const sortedPlayers = sortByTiebreakers(playerData, true);
 
       // Assign positions
-      playerData.forEach((p, idx) => {
+      sortedPlayers.forEach((p, idx) => {
         p.position = idx + 1;
       });
 
-      setPlayers(playerData);
+      setPlayers(sortedPlayers);
       setEliminations(eliminationMap);
     } catch (error) {
       console.error("Error fetching chase data:", error);
@@ -241,10 +237,13 @@ export default function ChaseStandings() {
           <TabsContent value="standings" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-primary" />
-                  Chase Standings
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-primary" />
+                    Chase Standings
+                  </CardTitle>
+                  <TiebreakerLegend />
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -254,7 +253,7 @@ export default function ChaseStandings() {
                       <TableHead>Player</TableHead>
                       <TableHead className="text-center">Playoff Pts</TableHead>
                       <TableHead className="text-center">Wins</TableHead>
-                      <TableHead className="text-center">Stage Wins</TableHead>
+                      <TableHead className="text-center hidden sm:table-cell">Stage Wins</TableHead>
                       <TableHead className="text-center hidden md:table-cell">Tiebreakers</TableHead>
                       <TableHead className="text-right">Status</TableHead>
                     </TableRow>
@@ -264,6 +263,13 @@ export default function ChaseStandings() {
                       const status = getPlayerStatus(player, player.position);
                       const isCurrentUser = player.user_id === user?.id;
                       const showEliminationLine = player.position === playersRemaining;
+                      
+                      // Calculate tiebreaker level
+                      const previousPlayer = idx > 0 ? players[idx - 1] : undefined;
+                      const decidedByTB = wasDecidedByTiebreaker(player, previousPlayer, true);
+                      const tiebreakerLevel = previousPlayer 
+                        ? getTiebreakerLevel(previousPlayer, player, true) 
+                        : ('points' as TiebreakerLevel);
 
                       return (
                         <>
@@ -290,27 +296,38 @@ export default function ChaseStandings() {
                                 {player.is_wild_card && (
                                   <Badge variant="outline" className="text-xs">WC</Badge>
                                 )}
+                                {/* Show TB badge on mobile */}
+                                {decidedByTB && (
+                                  <span className="md:hidden">
+                                    <TiebreakerBadge level={tiebreakerLevel} size="sm" />
+                                  </span>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell className="text-center font-semibold">{player.playoff_points}</TableCell>
                             <TableCell className="text-center">{player.race_wins}</TableCell>
-                            <TableCell className="text-center">{player.stage_wins}</TableCell>
+                            <TableCell className="text-center hidden sm:table-cell">{player.stage_wins}</TableCell>
                             <TableCell className="text-center hidden md:table-cell">
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <span className="text-xs text-muted-foreground cursor-help">
-                                    T5: {player.top_5s} | T10: {player.top_10s}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <div className="text-xs space-y-1">
-                                    <p>Top 5s: {player.top_5s}</p>
-                                    <p>Top 10s: {player.top_10s}</p>
-                                    <p>Top 15s: {player.top_15s}</p>
-                                    <p>Top 20s: {player.top_20s}</p>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
+                              <TiebreakerTooltip
+                                stats={{
+                                  race_wins: player.race_wins,
+                                  top_5s: player.top_5s,
+                                  top_10s: player.top_10s,
+                                  top_15s: player.top_15s,
+                                  top_20s: player.top_20s,
+                                }}
+                                decidingLevel={decidedByTB ? tiebreakerLevel : undefined}
+                              >
+                                <button className="cursor-help">
+                                  {decidedByTB ? (
+                                    <TiebreakerBadge level={tiebreakerLevel} showLabel size="sm" />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                      T5: {player.top_5s} | T10: {player.top_10s}
+                                    </span>
+                                  )}
+                                </button>
+                              </TiebreakerTooltip>
                             </TableCell>
                             <TableCell className="text-right">{getStatusBadge(status)}</TableCell>
                           </TableRow>

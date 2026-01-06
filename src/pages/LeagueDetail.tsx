@@ -10,8 +10,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings } from 'lucide-react';
+import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings, Info } from 'lucide-react';
 import { PayoutCard } from '@/components/PayoutCard';
+import { TiebreakerTooltip } from '@/components/TiebreakerTooltip';
+import { TiebreakerBadge } from '@/components/TiebreakerBadge';
+import { TiebreakerLegend } from '@/components/TiebreakerLegend';
+import { sortByTiebreakers, getTiebreakerLevel, wasDecidedByTiebreaker, TiebreakerLevel } from '@/lib/tiebreakers';
 import { toast } from 'sonner';
 import { ChaseStatusCard } from '@/components/ChaseStatusCard';
 import { ChaseRound, CHASE_ROUND_REMAINING } from '@/lib/chase-types';
@@ -39,6 +43,10 @@ interface Member {
   playoff_points: number;
   race_wins: number;
   stage_wins: number;
+  top_5s: number;
+  top_10s: number;
+  top_15s: number;
+  top_20s: number;
 }
 
 export default function LeagueDetail() {
@@ -138,10 +146,10 @@ export default function LeagueDetail() {
 
         const totalPoints = scores?.reduce((sum, s) => sum + (s.points_earned || 0), 0) || 0;
 
-        // Fetch season standings (playoff points, wins, etc.)
+        // Fetch season standings (playoff points, wins, tiebreaker stats)
         const { data: standings } = await supabase
           .from('user_season_standings')
-          .select('playoff_points, race_wins, stage_wins')
+          .select('playoff_points, race_wins, stage_wins, top_5s, top_10s, top_15s, top_20s')
           .eq('league_id', leagueId)
           .eq('user_id', member.user_id)
           .eq('season', leagueData.season)
@@ -154,14 +162,18 @@ export default function LeagueDetail() {
           total_points: totalPoints,
           playoff_points: standings?.playoff_points || 0,
           race_wins: standings?.race_wins || 0,
-          stage_wins: standings?.stage_wins || 0
+          stage_wins: standings?.stage_wins || 0,
+          top_5s: standings?.top_5s || 0,
+          top_10s: standings?.top_10s || 0,
+          top_15s: standings?.top_15s || 0,
+          top_20s: standings?.top_20s || 0
         };
       })
     );
 
-    // Sort by points descending
-    membersWithDetails.sort((a, b) => b.total_points - a.total_points);
-    setMembers(membersWithDetails);
+    // Sort using full tiebreaker logic
+    const sortedMembers = sortByTiebreakers(membersWithDetails, false);
+    setMembers(sortedMembers);
 
     // Fetch Chase round info
     const { data: chaseRound } = await supabase
@@ -342,8 +354,13 @@ export default function LeagueDetail() {
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2 overflow-hidden">
             <CardHeader className="pb-3 sm:pb-6">
-              <CardTitle className="text-lg sm:text-xl">Standings</CardTitle>
-              <CardDescription>Current season rankings</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg sm:text-xl">Standings</CardTitle>
+                  <CardDescription>Current season rankings</CardDescription>
+                </div>
+                <TiebreakerLegend />
+              </div>
             </CardHeader>
             <CardContent className="p-0 sm:p-6 sm:pt-0">
               <div className="overflow-x-auto">
@@ -354,56 +371,98 @@ export default function LeagueDetail() {
                       <TableHead>Member</TableHead>
                       <TableHead className="text-center hidden sm:table-cell">Wins</TableHead>
                       <TableHead className="text-center hidden md:table-cell">Playoff Pts</TableHead>
+                      <TableHead className="text-center hidden lg:table-cell">
+                        <span className="flex items-center justify-center gap-1">
+                          <Info className="h-3 w-3" />
+                          TB
+                        </span>
+                      </TableHead>
                       <TableHead className="text-right pr-4 sm:pr-4">Pts</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {members.map((member, index) => (
-                      <TableRow key={member.id}>
-                        <TableCell className="font-medium pl-4 sm:pl-4">
-                          {index === 0 && members.length > 1 && member.total_points > 0 ? (
-                            <span className="text-yellow-500">🏆</span>
-                          ) : (
-                            index + 1
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 sm:gap-2">
-                            <span className="truncate max-w-[120px] sm:max-w-none">{member.profile?.display_name || 'Unknown'}</span>
-                            {member.user_id === league.owner_id && (
-                              <span title="League Owner">
-                                <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 flex-shrink-0" />
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center hidden sm:table-cell">
-                          <div className="flex items-center justify-center gap-1">
-                            {member.race_wins > 0 && (
-                              <Badge variant="default" className="bg-green-600">
-                                <Flag className="h-3 w-3 mr-1" />
-                                {member.race_wins}
-                              </Badge>
-                            )}
-                            {member.stage_wins > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                <Star className="h-3 w-3 mr-1" />
-                                {member.stage_wins}
-                              </Badge>
-                            )}
-                            {member.race_wins === 0 && member.stage_wins === 0 && (
-                              <span className="text-muted-foreground text-sm">-</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center hidden md:table-cell">
-                          <Badge variant="secondary">{member.playoff_points}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-bold pr-4 sm:pr-4">
-                          {member.total_points}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {members.map((member, index) => {
+                      const previousMember = index > 0 ? members[index - 1] : undefined;
+                      const decidedByTB = wasDecidedByTiebreaker(member, previousMember);
+                      const tiebreakerLevel = previousMember 
+                        ? getTiebreakerLevel(previousMember, member) 
+                        : ('points' as TiebreakerLevel);
+
+                      return (
+                        <TableRow key={member.id}>
+                          <TableCell className="font-medium pl-4 sm:pl-4">
+                            <div className="flex items-center gap-1">
+                              {index === 0 && members.length > 1 && member.total_points > 0 ? (
+                                <span className="text-yellow-500">🏆</span>
+                              ) : (
+                                index + 1
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 sm:gap-2">
+                              <span className="truncate max-w-[120px] sm:max-w-none">{member.profile?.display_name || 'Unknown'}</span>
+                              {member.user_id === league.owner_id && (
+                                <span title="League Owner">
+                                  <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 flex-shrink-0" />
+                                </span>
+                              )}
+                              {/* Show TB badge on mobile only when tiebreaker was used */}
+                              {decidedByTB && (
+                                <span className="lg:hidden">
+                                  <TiebreakerBadge level={tiebreakerLevel} size="sm" />
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center hidden sm:table-cell">
+                            <div className="flex items-center justify-center gap-1">
+                              {member.race_wins > 0 && (
+                                <Badge variant="default" className="bg-green-600">
+                                  <Flag className="h-3 w-3 mr-1" />
+                                  {member.race_wins}
+                                </Badge>
+                              )}
+                              {member.stage_wins > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  {member.stage_wins}
+                                </Badge>
+                              )}
+                              {member.race_wins === 0 && member.stage_wins === 0 && (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center hidden md:table-cell">
+                            <Badge variant="secondary">{member.playoff_points}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center hidden lg:table-cell">
+                            <TiebreakerTooltip
+                              stats={{
+                                race_wins: member.race_wins,
+                                top_5s: member.top_5s,
+                                top_10s: member.top_10s,
+                                top_15s: member.top_15s,
+                                top_20s: member.top_20s,
+                              }}
+                              decidingLevel={decidedByTB ? tiebreakerLevel : undefined}
+                            >
+                              <button className="cursor-help text-muted-foreground hover:text-foreground transition-colors">
+                                {decidedByTB ? (
+                                  <TiebreakerBadge level={tiebreakerLevel} showLabel size="sm" />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </button>
+                            </TiebreakerTooltip>
+                          </TableCell>
+                          <TableCell className="text-right font-bold pr-4 sm:pr-4">
+                            {member.total_points}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
