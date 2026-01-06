@@ -2,3 +2,6 @@ project_id = "nygacxhvszabtncdqiml"
 
 [functions.nascar-proxy]
 verify_jwt = false
+
+[functions.calculate-race-scores]
+verify_jwt = false
