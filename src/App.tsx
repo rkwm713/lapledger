@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Leagues from "./pages/Leagues";
 import LeagueDetail from "./pages/LeagueDetail";
 import DriverPicks from "./pages/DriverPicks";
+import ChaseStandings from "./pages/ChaseStandings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/leagues" element={<Leagues />} />
             <Route path="/leagues/:leagueId" element={<LeagueDetail />} />
             <Route path="/leagues/:leagueId/picks" element={<DriverPicks />} />
+            <Route path="/leagues/:leagueId/chase" element={<ChaseStandings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

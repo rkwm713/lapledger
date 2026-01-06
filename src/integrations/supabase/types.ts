@@ -14,6 +14,100 @@ export type Database = {
   }
   public: {
     Tables: {
+      chase_eliminations: {
+        Row: {
+          created_at: string
+          eliminated_at: string
+          eliminated_round: number
+          final_position: number | null
+          id: string
+          league_id: string
+          playoff_points_at_elimination: number | null
+          season: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          eliminated_at?: string
+          eliminated_round: number
+          final_position?: number | null
+          id?: string
+          league_id: string
+          playoff_points_at_elimination?: number | null
+          season: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          eliminated_at?: string
+          eliminated_round?: number
+          final_position?: number | null
+          id?: string
+          league_id?: string
+          playoff_points_at_elimination?: number | null
+          season?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chase_eliminations_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chase_rounds: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          end_race_number: number | null
+          id: string
+          is_active: boolean
+          league_id: string
+          players_remaining: number
+          round_number: number
+          season: number
+          start_race_number: number | null
+          started_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          end_race_number?: number | null
+          id?: string
+          is_active?: boolean
+          league_id: string
+          players_remaining?: number
+          round_number?: number
+          season: number
+          start_race_number?: number | null
+          started_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          end_race_number?: number | null
+          id?: string
+          is_active?: boolean
+          league_id?: string
+          players_remaining?: number
+          round_number?: number
+          season?: number
+          start_race_number?: number | null
+          started_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chase_rounds_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_picks: {
         Row: {
           car_number: string | null
