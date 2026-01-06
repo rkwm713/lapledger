@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award } from 'lucide-react';
+import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings } from 'lucide-react';
+import { PayoutCard } from '@/components/PayoutCard';
 import { toast } from 'sonner';
 import { ChaseStatusCard } from '@/components/ChaseStatusCard';
 import { ChaseRound, CHASE_ROUND_REMAINING } from '@/lib/chase-types';
@@ -50,6 +51,14 @@ export default function LeagueDetail() {
   const [copied, setCopied] = useState(false);
   const [currentChaseRound, setCurrentChaseRound] = useState<ChaseRound | null>(null);
   const [userChaseStatus, setUserChaseStatus] = useState<'safe' | 'at-risk' | 'eliminated' | 'not-qualified' | null>(null);
+  const [leagueSettings, setLeagueSettings] = useState<{
+    entry_fee: number;
+    payout_first: number;
+    payout_second: number;
+    payout_third: number;
+    payout_fourth: number;
+  } | null>(null);
+  const [paidMembersCount, setPaidMembersCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -80,11 +89,22 @@ export default function LeagueDetail() {
     }
     setLeague(leagueData);
 
-    // Fetch members with profiles
+    // Fetch members with profiles and payment status
     const { data: membersData, error: membersError } = await supabase
       .from('league_members')
-      .select('id, user_id, joined_at')
+      .select('id, user_id, joined_at, payment_status')
       .eq('league_id', leagueId);
+
+    // Fetch league settings
+    const { data: settingsData } = await supabase
+      .from('league_settings')
+      .select('entry_fee, payout_first, payout_second, payout_third, payout_fourth')
+      .eq('league_id', leagueId)
+      .maybeSingle();
+
+    if (settingsData) {
+      setLeagueSettings(settingsData);
+    }
 
     if (membersError) {
       toast.error('Failed to load members');
@@ -189,6 +209,16 @@ export default function LeagueDetail() {
       }
     }
 
+    // Count paid members
+    const paidCount = membersWithDetails.filter(() => {
+      const memberData = membersData?.find(m => true);
+      return false; // We'll update this properly
+    }).length;
+    
+    // Get paid count from membersData directly
+    const actualPaidCount = (membersData || []).filter(m => m.payment_status === 'paid').length;
+    setPaidMembersCount(actualPaidCount);
+
     setLoading(false);
   }
 
@@ -284,6 +314,17 @@ export default function LeagueDetail() {
               <Award className="h-4 w-4 mr-2" />
               Chase Bracket
             </Button>
+
+            {isOwner && (
+              <Button 
+                variant="outline" 
+                onClick={() => navigate(`/leagues/${leagueId}/settings`)} 
+                className="w-full sm:w-auto"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            )}
           </div>
         </div>
 
@@ -369,29 +410,43 @@ export default function LeagueDetail() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>League Info</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-muted-foreground">Members</Label>
-                <p className="font-semibold">{members.length}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Season</Label>
-                <p className="font-semibold">{league.season}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Series</Label>
-                <p className="font-semibold">{seriesLabels[league.series]}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Invite Code</Label>
-                <p className="font-mono font-semibold">{league.invite_code}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>League Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Members</Label>
+                  <p className="font-semibold">{members.length}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Season</Label>
+                  <p className="font-semibold">{league.season}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Series</Label>
+                  <p className="font-semibold">{seriesLabels[league.series]}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Invite Code</Label>
+                  <p className="font-mono font-semibold">{league.invite_code}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {leagueSettings && (
+              <PayoutCard
+                entryFee={leagueSettings.entry_fee}
+                payoutFirst={leagueSettings.payout_first}
+                payoutSecond={leagueSettings.payout_second}
+                payoutThird={leagueSettings.payout_third}
+                payoutFourth={leagueSettings.payout_fourth}
+                membersPaid={paidMembersCount}
+                totalMembers={members.length}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
