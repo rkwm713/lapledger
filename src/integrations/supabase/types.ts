@@ -202,18 +202,27 @@ export type Database = {
           id: string
           joined_at: string
           league_id: string
+          payment_date: string | null
+          payment_notes: string | null
+          payment_status: string | null
           user_id: string
         }
         Insert: {
           id?: string
           joined_at?: string
           league_id: string
+          payment_date?: string | null
+          payment_notes?: string | null
+          payment_status?: string | null
           user_id: string
         }
         Update: {
           id?: string
           joined_at?: string
           league_id?: string
+          payment_date?: string | null
+          payment_notes?: string | null
+          payment_status?: string | null
           user_id?: string
         }
         Relationships: [

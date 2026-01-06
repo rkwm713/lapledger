@@ -10,6 +10,7 @@ import RaceDetail from "./pages/RaceDetail";
 import Auth from "./pages/Auth";
 import Leagues from "./pages/Leagues";
 import LeagueDetail from "./pages/LeagueDetail";
+import LeagueSettings from "./pages/LeagueSettings";
 import DriverPicks from "./pages/DriverPicks";
 import ChaseStandings from "./pages/ChaseStandings";
 import NotFound from "./pages/NotFound";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/leagues" element={<Leagues />} />
             <Route path="/leagues/:leagueId" element={<LeagueDetail />} />
+            <Route path="/leagues/:leagueId/settings" element={<LeagueSettings />} />
             <Route path="/leagues/:leagueId/picks" element={<DriverPicks />} />
             <Route path="/leagues/:leagueId/chase" element={<ChaseStandings />} />
             <Route path="*" element={<NotFound />} />

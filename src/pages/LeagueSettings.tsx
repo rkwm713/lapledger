@@ -1,0 +1,403 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { Navigation } from '@/components/Navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save } from 'lucide-react';
+import { toast } from 'sonner';
+import { MemberPaymentRow } from '@/components/MemberPaymentRow';
+import { PayoutCard } from '@/components/PayoutCard';
+
+interface LeagueSettings {
+  id: string;
+  league_id: string;
+  entry_fee: number;
+  payment_deadline: string | null;
+  payout_first: number;
+  payout_second: number;
+  payout_third: number;
+  payout_fourth: number;
+}
+
+interface Member {
+  id: string;
+  user_id: string;
+  display_name: string;
+  payment_status: 'pending' | 'paid' | 'overdue';
+  payment_date: string | null;
+  isOwner: boolean;
+}
+
+export default function LeagueSettings() {
+  const { leagueId } = useParams<{ leagueId: string }>();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [leagueName, setLeagueName] = useState('');
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<LeagueSettings | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  
+  // Form state
+  const [entryFee, setEntryFee] = useState('100');
+  const [paymentDeadline, setPaymentDeadline] = useState('');
+  const [payoutFirst, setPayoutFirst] = useState('2200');
+  const [payoutSecond, setPayoutSecond] = useState('800');
+  const [payoutThird, setPayoutThird] = useState('400');
+  const [payoutFourth, setPayoutFourth] = useState('200');
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user && leagueId) {
+      fetchData();
+    }
+  }, [user, leagueId]);
+
+  async function fetchData() {
+    setLoading(true);
+
+    // Fetch league
+    const { data: league, error: leagueError } = await supabase
+      .from('leagues')
+      .select('id, name, owner_id')
+      .eq('id', leagueId)
+      .maybeSingle();
+
+    if (leagueError || !league) {
+      toast.error('League not found');
+      navigate('/leagues');
+      return;
+    }
+
+    // Check ownership
+    if (league.owner_id !== user?.id) {
+      toast.error('Only the league owner can access settings');
+      navigate(`/leagues/${leagueId}`);
+      return;
+    }
+
+    setLeagueName(league.name);
+    setOwnerId(league.owner_id);
+
+    // Fetch settings
+    const { data: settingsData } = await supabase
+      .from('league_settings')
+      .select('*')
+      .eq('league_id', leagueId)
+      .maybeSingle();
+
+    if (settingsData) {
+      setSettings(settingsData);
+      setEntryFee(settingsData.entry_fee.toString());
+      setPaymentDeadline(settingsData.payment_deadline || '');
+      setPayoutFirst(settingsData.payout_first.toString());
+      setPayoutSecond(settingsData.payout_second.toString());
+      setPayoutThird(settingsData.payout_third.toString());
+      setPayoutFourth(settingsData.payout_fourth.toString());
+    }
+
+    // Fetch members with payment status
+    const { data: membersData } = await supabase
+      .from('league_members')
+      .select('id, user_id, payment_status, payment_date')
+      .eq('league_id', leagueId);
+
+    if (membersData) {
+      const membersWithProfiles = await Promise.all(
+        membersData.map(async (member) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name')
+            .eq('id', member.user_id)
+            .maybeSingle();
+
+          // Check if payment is overdue
+          let status = member.payment_status as 'pending' | 'paid' | 'overdue';
+          if (status === 'pending' && settingsData?.payment_deadline) {
+            const deadline = new Date(settingsData.payment_deadline);
+            if (new Date() > deadline) {
+              status = 'overdue';
+            }
+          }
+
+          return {
+            id: member.id,
+            user_id: member.user_id,
+            display_name: profile?.display_name || 'Unknown',
+            payment_status: status,
+            payment_date: member.payment_date,
+            isOwner: member.user_id === league.owner_id
+          };
+        })
+      );
+
+      // Sort: owners first, then by name
+      membersWithProfiles.sort((a, b) => {
+        if (a.isOwner && !b.isOwner) return -1;
+        if (!a.isOwner && b.isOwner) return 1;
+        return a.display_name.localeCompare(b.display_name);
+      });
+
+      setMembers(membersWithProfiles);
+    }
+
+    setLoading(false);
+  }
+
+  async function handleSaveSettings() {
+    if (!leagueId) return;
+    
+    setSaving(true);
+
+    const settingsData = {
+      league_id: leagueId,
+      entry_fee: parseFloat(entryFee) || 100,
+      payment_deadline: paymentDeadline || null,
+      payout_first: parseInt(payoutFirst) || 2200,
+      payout_second: parseInt(payoutSecond) || 800,
+      payout_third: parseInt(payoutThird) || 400,
+      payout_fourth: parseInt(payoutFourth) || 200
+    };
+
+    if (settings?.id) {
+      // Update existing
+      const { error } = await supabase
+        .from('league_settings')
+        .update(settingsData)
+        .eq('id', settings.id);
+
+      if (error) {
+        toast.error('Failed to save settings');
+        setSaving(false);
+        return;
+      }
+    } else {
+      // Insert new
+      const { error } = await supabase
+        .from('league_settings')
+        .insert(settingsData);
+
+      if (error) {
+        toast.error('Failed to save settings');
+        setSaving(false);
+        return;
+      }
+    }
+
+    toast.success('Settings saved!');
+    setSaving(false);
+    fetchData();
+  }
+
+  async function handleTogglePayment(memberId: string, currentStatus: string) {
+    const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+    const paymentDate = newStatus === 'paid' ? new Date().toISOString() : null;
+
+    const { error } = await supabase
+      .from('league_members')
+      .update({ 
+        payment_status: newStatus,
+        payment_date: paymentDate
+      })
+      .eq('id', memberId);
+
+    if (error) {
+      toast.error('Failed to update payment status');
+      return;
+    }
+
+    toast.success(`Payment marked as ${newStatus}`);
+    fetchData();
+  }
+
+  const paidCount = members.filter(m => m.payment_status === 'paid').length;
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container py-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="container py-6 px-4 sm:py-8 sm:px-6">
+        <Button variant="ghost" onClick={() => navigate(`/leagues/${leagueId}`)} className="mb-4 -ml-2">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to League
+        </Button>
+
+        <div className="flex items-center gap-3 mb-6">
+          <Settings className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">League Settings</h1>
+            <p className="text-muted-foreground">{leagueName}</p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Entry Fee & Payouts */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Entry Fee & Payouts
+                </CardTitle>
+                <CardDescription>
+                  Configure the financial structure of your league
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="entryFee">Entry Fee ($)</Label>
+                    <Input
+                      id="entryFee"
+                      type="number"
+                      value={entryFee}
+                      onChange={(e) => setEntryFee(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="deadline">Payment Deadline</Label>
+                    <Input
+                      id="deadline"
+                      type="date"
+                      value={paymentDeadline}
+                      onChange={(e) => setPaymentDeadline(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-3 block">Payout Structure</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="payout1" className="text-xs text-muted-foreground">1st Place</Label>
+                      <Input
+                        id="payout1"
+                        type="number"
+                        value={payoutFirst}
+                        onChange={(e) => setPayoutFirst(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="payout2" className="text-xs text-muted-foreground">2nd Place</Label>
+                      <Input
+                        id="payout2"
+                        type="number"
+                        value={payoutSecond}
+                        onChange={(e) => setPayoutSecond(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="payout3" className="text-xs text-muted-foreground">3rd Place</Label>
+                      <Input
+                        id="payout3"
+                        type="number"
+                        value={payoutThird}
+                        onChange={(e) => setPayoutThird(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="payout4" className="text-xs text-muted-foreground">4th Place</Label>
+                      <Input
+                        id="payout4"
+                        type="number"
+                        value={payoutFourth}
+                        onChange={(e) => setPayoutFourth(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={handleSaveSettings} disabled={saving} className="w-full sm:w-auto">
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save Settings
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Member Payments */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Member Payments
+                </CardTitle>
+                <CardDescription>
+                  {paidCount} of {members.length} members have paid
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6 sm:pt-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Member</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="hidden sm:table-cell">Paid On</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {members.map((member) => (
+                        <MemberPaymentRow
+                          key={member.id}
+                          member={member}
+                          canEdit={true}
+                          onTogglePayment={handleTogglePayment}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Payout Summary Sidebar */}
+          <div>
+            <PayoutCard
+              entryFee={parseFloat(entryFee) || 100}
+              payoutFirst={parseInt(payoutFirst) || 2200}
+              payoutSecond={parseInt(payoutSecond) || 800}
+              payoutThird={parseInt(payoutThird) || 400}
+              payoutFourth={parseInt(payoutFourth) || 200}
+              membersPaid={paidCount}
+              totalMembers={members.length}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
