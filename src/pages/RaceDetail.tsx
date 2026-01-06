@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigation } from "@/components/Navigation";
 import { ResultsTable } from "@/components/ResultsTable";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { RacePicksSummary } from "@/components/RacePicksSummary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, MapPin, Trophy, Flag, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Trophy, Flag, Clock, Users } from "lucide-react";
 import { getRaceDetails, getSeasonRaces } from "@/lib/nascar";
 import type { SeriesType, Race } from "@/lib/types";
 
@@ -17,6 +18,7 @@ const RaceDetail = () => {
   
   const series = (searchParams.get('series') as SeriesType) || 'cup';
   const season = searchParams.get('season') || new Date().getFullYear().toString();
+  const leagueId = searchParams.get('leagueId');
   
   // Get race info from navigation state if available
   const stateRace = location.state?.race as Race | undefined;
@@ -189,6 +191,25 @@ const RaceDetail = () => {
               <div className="text-center py-8 text-muted-foreground">
                 <p>Results not available for this race.</p>
               </div>
+            )}
+
+            {/* League Picks Summary */}
+            {leagueId && raceId && !isFutureRace && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    League Picks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RacePicksSummary
+                    leagueId={leagueId}
+                    raceId={parseInt(raceId)}
+                    season={parseInt(season)}
+                  />
+                </CardContent>
+              </Card>
             )}
           </>
         )}

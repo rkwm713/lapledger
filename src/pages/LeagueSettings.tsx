@@ -5,11 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save, CreditCard } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save, CreditCard, RefreshCw, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { MemberPaymentRow } from '@/components/MemberPaymentRow';
 import { PayoutCard } from '@/components/PayoutCard';
@@ -44,10 +45,15 @@ export default function LeagueSettings() {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [recalculating, setRecalculating] = useState<string | null>(null);
   const [leagueName, setLeagueName] = useState('');
+  const [leagueSeason, setLeagueSeason] = useState<number>(new Date().getFullYear());
+  const [leagueSeries, setLeagueSeries] = useState<string>('cup');
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [settings, setSettings] = useState<LeagueSettings | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [completedRaces, setCompletedRaces] = useState<{ race_id: number; race_name: string; race_date: string }[]>([]);
+  const [selectedRaceId, setSelectedRaceId] = useState<string>('');
   
   // Form state
   const [entryFee, setEntryFee] = useState('100');
@@ -78,7 +84,7 @@ export default function LeagueSettings() {
     // Fetch league
     const { data: league, error: leagueError } = await supabase
       .from('leagues')
-      .select('id, name, owner_id')
+      .select('id, name, owner_id, season, series')
       .eq('id', leagueId)
       .maybeSingle();
 
@@ -97,6 +103,31 @@ export default function LeagueSettings() {
 
     setLeagueName(league.name);
     setOwnerId(league.owner_id);
+    setLeagueSeason(league.season);
+    setLeagueSeries(league.series);
+
+    // Fetch completed races that have been scored
+    try {
+      // @ts-ignore - Supabase type instantiation depth issue
+      const result = await supabase.from('race_scores').select('race_id').eq('league_id', leagueId);
+      const scoredRaces = result.data as { race_id: number }[] | null;
+
+      if (scoredRaces && scoredRaces.length > 0) {
+        // Get unique race IDs and build race info
+        const uniqueRaceIds = [...new Set(scoredRaces.map(r => r.race_id))];
+        
+        // Build race list
+        const races = uniqueRaceIds.map(id => ({
+          race_id: id,
+          race_name: `Race ${id}`,
+          race_date: ''
+        }));
+        
+        setCompletedRaces(races);
+      }
+    } catch (e) {
+      console.error('Error fetching scored races:', e);
+    }
 
     // Fetch settings
     const { data: settingsData } = await supabase
@@ -233,6 +264,36 @@ export default function LeagueSettings() {
 
     toast.success(`Payment marked as ${newStatus}`);
     fetchData();
+  }
+
+  async function handleRecalculateScores() {
+    if (!selectedRaceId || !leagueId) {
+      toast.error('Please select a race');
+      return;
+    }
+
+    setRecalculating(selectedRaceId);
+
+    try {
+      const { error } = await supabase.functions.invoke('calculate-race-scores', {
+        body: {
+          league_id: leagueId,
+          race_id: selectedRaceId,
+          series: leagueSeries,
+          season: leagueSeason.toString()
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Scores recalculated! Any Monday penalties are now reflected.');
+      setSelectedRaceId('');
+    } catch (error) {
+      console.error('Error recalculating scores:', error);
+      toast.error('Failed to recalculate scores');
+    } finally {
+      setRecalculating(null);
+    }
   }
 
   const paidCount = members.filter(m => m.payment_status === 'paid').length;
@@ -452,6 +513,59 @@ export default function LeagueSettings() {
                     </TableBody>
                   </Table>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Race Management - Recalculate Scores */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Race Management
+                </CardTitle>
+                <CardDescription>
+                  Recalculate scores after NASCAR's Monday penalty adjustments
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  NASCAR sometimes adjusts finishing positions on Monday due to post-race penalties. 
+                  Select a race and click Recalculate to update scores based on the latest official results.
+                </p>
+                
+                {completedRaces.length > 0 ? (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Select value={selectedRaceId} onValueChange={setSelectedRaceId}>
+                      <SelectTrigger className="w-full sm:w-[250px]">
+                        <SelectValue placeholder="Select a race..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {completedRaces.map((race) => (
+                          <SelectItem key={race.race_id} value={String(race.race_id)}>
+                            {race.race_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Button 
+                      onClick={handleRecalculateScores}
+                      disabled={!selectedRaceId || recalculating !== null}
+                      variant="outline"
+                    >
+                      {recalculating ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Recalculate Scores
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    No completed races to recalculate yet.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

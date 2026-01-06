@@ -39,6 +39,7 @@ export default function ChaseStandings() {
   const [eliminations, setEliminations] = useState<Map<number, ChasePlayer[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("standings");
+  const [isRoundStart, setIsRoundStart] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -76,6 +77,12 @@ export default function ChaseStandings() {
 
       if (roundData) {
         setCurrentRound(roundData as ChaseRound);
+        
+        // Check if this is the start of a round (created within last 24 hours)
+        const createdAt = new Date(roundData.created_at);
+        const now = new Date();
+        const hoursSinceCreated = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+        setIsRoundStart(hoursSinceCreated < 24);
       }
 
       // Fetch all members with their standings
@@ -225,6 +232,7 @@ export default function ChaseStandings() {
           currentRound={currentRound}
           playersRemaining={playersRemaining}
           userStatus={getUserStatus()}
+          isRoundStart={isRoundStart}
         />
 
         {/* Tabs */}
