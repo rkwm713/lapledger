@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.calculate-race-scores]
 verify_jwt = false
+
+[functions.calculate-chase-elimination]
+verify_jwt = false

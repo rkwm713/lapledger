@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star } from 'lucide-react';
+import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award } from 'lucide-react';
 import { toast } from 'sonner';
+import { ChaseStatusCard } from '@/components/ChaseStatusCard';
+import { ChaseRound, CHASE_ROUND_REMAINING } from '@/lib/chase-types';
 
 interface League {
   id: string;
@@ -46,6 +48,8 @@ export default function LeagueDetail() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [currentChaseRound, setCurrentChaseRound] = useState<ChaseRound | null>(null);
+  const [userChaseStatus, setUserChaseStatus] = useState<'safe' | 'at-risk' | 'eliminated' | 'not-qualified' | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -138,6 +142,53 @@ export default function LeagueDetail() {
     // Sort by points descending
     membersWithDetails.sort((a, b) => b.total_points - a.total_points);
     setMembers(membersWithDetails);
+
+    // Fetch Chase round info
+    const { data: chaseRound } = await supabase
+      .from('chase_rounds')
+      .select('*')
+      .eq('league_id', leagueId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (chaseRound) {
+      setCurrentChaseRound(chaseRound as ChaseRound);
+      
+      // Determine user's Chase status
+      if (user) {
+        const { data: userStandings } = await supabase
+          .from('user_season_standings')
+          .select('is_eliminated, playoff_points')
+          .eq('league_id', leagueId)
+          .eq('user_id', user.id)
+          .eq('season', leagueData.season)
+          .maybeSingle();
+
+        if (!userStandings) {
+          setUserChaseStatus('not-qualified');
+        } else if (userStandings.is_eliminated) {
+          setUserChaseStatus('eliminated');
+        } else {
+          // Find user's position to determine safe/at-risk
+          const userPoints = userStandings.playoff_points || 0;
+          const activeCount = membersWithDetails.filter(m => {
+            const idx = membersWithDetails.indexOf(m);
+            return idx < (CHASE_ROUND_REMAINING[chaseRound.round_number] || 23);
+          }).length;
+          const userPos = membersWithDetails.findIndex(m => m.user_id === user.id) + 1;
+          const cutoff = CHASE_ROUND_REMAINING[chaseRound.round_number] || 23;
+          
+          if (userPos <= cutoff - 2) {
+            setUserChaseStatus('safe');
+          } else if (userPos <= cutoff) {
+            setUserChaseStatus('at-risk');
+          } else {
+            setUserChaseStatus('eliminated');
+          }
+        }
+      }
+    }
+
     setLoading(false);
   }
 
@@ -224,8 +275,28 @@ export default function LeagueDetail() {
             <Button onClick={() => navigate(`/leagues/${leagueId}/picks`)} className="w-full sm:w-auto">
               Manage Picks
             </Button>
+
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/leagues/${leagueId}/chase`)} 
+              className="w-full sm:w-auto"
+            >
+              <Award className="h-4 w-4 mr-2" />
+              Chase Bracket
+            </Button>
           </div>
         </div>
+
+        {/* Chase Status Card */}
+        {currentChaseRound && (
+          <div className="mb-6">
+            <ChaseStatusCard
+              currentRound={currentChaseRound}
+              playersRemaining={CHASE_ROUND_REMAINING[currentChaseRound.round_number] || 23}
+              userStatus={userChaseStatus}
+            />
+          </div>
+        )}
 
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2 overflow-hidden">
