@@ -13,6 +13,7 @@ import LeagueDetail from "./pages/LeagueDetail";
 import LeagueSettings from "./pages/LeagueSettings";
 import DriverPicks from "./pages/DriverPicks";
 import ChaseStandings from "./pages/ChaseStandings";
+import ScoringHistory from "./pages/ScoringHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/leagues/:leagueId/settings" element={<LeagueSettings />} />
             <Route path="/leagues/:leagueId/picks" element={<DriverPicks />} />
             <Route path="/leagues/:leagueId/chase" element={<ChaseStandings />} />
+            <Route path="/leagues/:leagueId/history" element={<ScoringHistory />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

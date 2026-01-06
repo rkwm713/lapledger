@@ -242,6 +242,9 @@ export type Database = {
           id: string
           league_id: string
           payment_deadline: string | null
+          payment_instructions: string | null
+          payment_paypal: string | null
+          payment_venmo: string | null
           payout_first: number
           payout_fourth: number
           payout_second: number
@@ -254,6 +257,9 @@ export type Database = {
           id?: string
           league_id: string
           payment_deadline?: string | null
+          payment_instructions?: string | null
+          payment_paypal?: string | null
+          payment_venmo?: string | null
           payout_first?: number
           payout_fourth?: number
           payout_second?: number
@@ -266,6 +272,9 @@ export type Database = {
           id?: string
           league_id?: string
           payment_deadline?: string | null
+          payment_instructions?: string | null
+          payment_paypal?: string | null
+          payment_venmo?: string | null
           payout_first?: number
           payout_fourth?: number
           payout_second?: number
@@ -438,6 +447,7 @@ export type Database = {
           elimination_round: number | null
           id: string
           is_eliminated: boolean
+          is_regular_season_winner: boolean | null
           is_wild_card: boolean
           league_id: string
           playoff_points: number
@@ -457,6 +467,7 @@ export type Database = {
           elimination_round?: number | null
           id?: string
           is_eliminated?: boolean
+          is_regular_season_winner?: boolean | null
           is_wild_card?: boolean
           league_id: string
           playoff_points?: number
@@ -476,6 +487,7 @@ export type Database = {
           elimination_round?: number | null
           id?: string
           is_eliminated?: boolean
+          is_regular_season_winner?: boolean | null
           is_wild_card?: boolean
           league_id?: string
           playoff_points?: number

@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { MemberPaymentRow } from '@/components/MemberPaymentRow';
 import { PayoutCard } from '@/components/PayoutCard';
@@ -22,6 +23,9 @@ interface LeagueSettings {
   payout_second: number;
   payout_third: number;
   payout_fourth: number;
+  payment_paypal: string | null;
+  payment_venmo: string | null;
+  payment_instructions: string | null;
 }
 
 interface Member {
@@ -52,6 +56,9 @@ export default function LeagueSettings() {
   const [payoutSecond, setPayoutSecond] = useState('800');
   const [payoutThird, setPayoutThird] = useState('400');
   const [payoutFourth, setPayoutFourth] = useState('200');
+  const [paymentPaypal, setPaymentPaypal] = useState('');
+  const [paymentVenmo, setPaymentVenmo] = useState('');
+  const [paymentInstructions, setPaymentInstructions] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -99,13 +106,16 @@ export default function LeagueSettings() {
       .maybeSingle();
 
     if (settingsData) {
-      setSettings(settingsData);
+      setSettings(settingsData as LeagueSettings);
       setEntryFee(settingsData.entry_fee.toString());
       setPaymentDeadline(settingsData.payment_deadline || '');
       setPayoutFirst(settingsData.payout_first.toString());
       setPayoutSecond(settingsData.payout_second.toString());
       setPayoutThird(settingsData.payout_third.toString());
       setPayoutFourth(settingsData.payout_fourth.toString());
+      setPaymentPaypal(settingsData.payment_paypal || '');
+      setPaymentVenmo(settingsData.payment_venmo || '');
+      setPaymentInstructions(settingsData.payment_instructions || '');
     }
 
     // Fetch members with payment status
@@ -168,7 +178,10 @@ export default function LeagueSettings() {
       payout_first: parseInt(payoutFirst) || 2200,
       payout_second: parseInt(payoutSecond) || 800,
       payout_third: parseInt(payoutThird) || 400,
-      payout_fourth: parseInt(payoutFourth) || 200
+      payout_fourth: parseInt(payoutFourth) || 200,
+      payment_paypal: paymentPaypal || null,
+      payment_venmo: paymentVenmo || null,
+      payment_instructions: paymentInstructions || null,
     };
 
     if (settings?.id) {
@@ -342,6 +355,65 @@ export default function LeagueSettings() {
                     <Save className="h-4 w-4 mr-2" />
                   )}
                   Save Settings
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Payment Information Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Payment Information
+                </CardTitle>
+                <CardDescription>
+                  Enter your payment details for members to see
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="paypal">PayPal (email or phone)</Label>
+                    <Input
+                      id="paypal"
+                      type="text"
+                      value={paymentPaypal}
+                      onChange={(e) => setPaymentPaypal(e.target.value)}
+                      placeholder="Brandiwall77@gmail.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="venmo">Venmo Username</Label>
+                    <Input
+                      id="venmo"
+                      type="text"
+                      value={paymentVenmo}
+                      onChange={(e) => setPaymentVenmo(e.target.value)}
+                      placeholder="@Brandi-Fields-1"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="instructions">Additional Instructions</Label>
+                  <Textarea
+                    id="instructions"
+                    value={paymentInstructions}
+                    onChange={(e) => setPaymentInstructions(e.target.value)}
+                    placeholder="e.g., Include your league name in the payment note"
+                    className="mt-1"
+                    rows={3}
+                  />
+                </div>
+
+                <Button onClick={handleSaveSettings} disabled={saving} className="w-full sm:w-auto">
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save Payment Info
                 </Button>
               </CardContent>
             </Card>
