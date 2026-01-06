@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings, Info } from 'lucide-react';
+import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings, Info, History, Sparkles } from 'lucide-react';
 import { PayoutCard } from '@/components/PayoutCard';
+import { PaymentInfoCard } from '@/components/PaymentInfoCard';
 import { TiebreakerTooltip } from '@/components/TiebreakerTooltip';
 import { TiebreakerBadge } from '@/components/TiebreakerBadge';
 import { TiebreakerLegend } from '@/components/TiebreakerLegend';
@@ -65,8 +66,14 @@ export default function LeagueDetail() {
     payout_second: number;
     payout_third: number;
     payout_fourth: number;
+    payment_deadline: string | null;
+    payment_paypal: string | null;
+    payment_venmo: string | null;
+    payment_instructions: string | null;
   } | null>(null);
   const [paidMembersCount, setPaidMembersCount] = useState(0);
+  const [userPaymentStatus, setUserPaymentStatus] = useState<'pending' | 'paid' | 'overdue' | undefined>(undefined);
+  const [regularSeasonWinnerId, setRegularSeasonWinnerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -106,12 +113,25 @@ export default function LeagueDetail() {
     // Fetch league settings
     const { data: settingsData } = await supabase
       .from('league_settings')
-      .select('entry_fee, payout_first, payout_second, payout_third, payout_fourth')
+      .select('entry_fee, payout_first, payout_second, payout_third, payout_fourth, payment_deadline, payment_paypal, payment_venmo, payment_instructions')
       .eq('league_id', leagueId)
       .maybeSingle();
 
     if (settingsData) {
       setLeagueSettings(settingsData);
+    }
+
+    // Get user's payment status
+    const userMember = membersData?.find(m => m.user_id === user?.id);
+    if (userMember) {
+      let status = userMember.payment_status as 'pending' | 'paid' | 'overdue';
+      if (status === 'pending' && settingsData?.payment_deadline) {
+        const deadline = new Date(settingsData.payment_deadline);
+        if (new Date() > deadline) {
+          status = 'overdue';
+        }
+      }
+      setUserPaymentStatus(status);
     }
 
     if (membersError) {
@@ -149,11 +169,16 @@ export default function LeagueDetail() {
         // Fetch season standings (playoff points, wins, tiebreaker stats)
         const { data: standings } = await supabase
           .from('user_season_standings')
-          .select('playoff_points, race_wins, stage_wins, top_5s, top_10s, top_15s, top_20s')
+          .select('playoff_points, race_wins, stage_wins, top_5s, top_10s, top_15s, top_20s, is_regular_season_winner')
           .eq('league_id', leagueId)
           .eq('user_id', member.user_id)
           .eq('season', leagueData.season)
           .maybeSingle();
+
+        // Track regular season winner
+        if (standings?.is_regular_season_winner) {
+          setRegularSeasonWinnerId(member.user_id);
+        }
 
         return {
           ...member,
@@ -320,6 +345,15 @@ export default function LeagueDetail() {
 
             <Button 
               variant="outline" 
+              onClick={() => navigate(`/leagues/${leagueId}/history`)} 
+              className="w-full sm:w-auto"
+            >
+              <History className="h-4 w-4 mr-2" />
+              Scoring History
+            </Button>
+
+            <Button 
+              variant="outline" 
               onClick={() => navigate(`/leagues/${leagueId}/chase`)} 
               className="w-full sm:w-auto"
             >
@@ -405,6 +439,11 @@ export default function LeagueDetail() {
                               {member.user_id === league.owner_id && (
                                 <span title="League Owner">
                                   <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 flex-shrink-0" />
+                                </span>
+                              )}
+                              {member.user_id === regularSeasonWinnerId && (
+                                <span title="Regular Season Winner (+15 Playoff Pts)">
+                                  <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500 flex-shrink-0" />
                                 </span>
                               )}
                               {/* Show TB badge on mobile only when tiebreaker was used */}
@@ -503,6 +542,17 @@ export default function LeagueDetail() {
                 payoutFourth={leagueSettings.payout_fourth}
                 membersPaid={paidMembersCount}
                 totalMembers={members.length}
+              />
+            )}
+
+            {leagueSettings && (
+              <PaymentInfoCard
+                entryFee={leagueSettings.entry_fee}
+                paymentDeadline={leagueSettings.payment_deadline}
+                paymentPaypal={leagueSettings.payment_paypal}
+                paymentVenmo={leagueSettings.payment_venmo}
+                paymentInstructions={leagueSettings.payment_instructions}
+                userPaymentStatus={userPaymentStatus}
               />
             )}
           </div>

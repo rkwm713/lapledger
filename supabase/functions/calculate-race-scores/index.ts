@@ -131,15 +131,40 @@ serve(async (req) => {
     const winner = raceResults.find(r => r.finishing_position === 1);
     const winnerDriverId = winner?.driver_id;
 
-    // Fetch all league members
+    // Fetch league settings to check payment deadline
+    const { data: leagueSettings } = await supabase
+      .from('league_settings')
+      .select('payment_deadline')
+      .eq('league_id', league_id)
+      .maybeSingle();
+
+    const paymentDeadline = leagueSettings?.payment_deadline 
+      ? new Date(leagueSettings.payment_deadline) 
+      : null;
+    const isPastDeadline = paymentDeadline ? new Date() > paymentDeadline : false;
+
+    // Fetch all league members with payment status
     const { data: members, error: membersError } = await supabase
       .from('league_members')
-      .select('user_id')
+      .select('user_id, payment_status')
       .eq('league_id', league_id);
 
     if (membersError) {
       console.error('Error fetching members:', membersError);
       throw new Error('Failed to fetch league members');
+    }
+
+    // Filter out unpaid members if past deadline
+    const scoringMembers = isPastDeadline 
+      ? members?.filter(m => m.payment_status === 'paid') || []
+      : members || [];
+    
+    const skippedMembers = isPastDeadline 
+      ? members?.filter(m => m.payment_status !== 'paid') || []
+      : [];
+
+    if (skippedMembers.length > 0) {
+      console.log(`Skipping ${skippedMembers.length} unpaid members (past deadline: ${paymentDeadline?.toISOString()})`);
     }
 
     // Fetch all picks for this race
@@ -194,8 +219,8 @@ serve(async (req) => {
       driver_name: string | null;
     }> = [];
 
-    // Calculate score for each member
-    for (const member of members || []) {
+    // Calculate score for each member (only those eligible for scoring)
+    for (const member of scoringMembers) {
       const pick = picksByUser.get(member.user_id);
       
       let pointsEarned = 0;

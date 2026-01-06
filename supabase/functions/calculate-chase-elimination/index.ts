@@ -90,23 +90,42 @@ Deno.serve(async (req) => {
       return b.top_20s - a.top_20s;
     };
 
-    if (action === "qualify_for_chase") {
-      // Determine top 20 by regular season points
-      const sortedByRegular = [...players].sort((a, b) => 
-        b.regular_season_points - a.regular_season_points
-      );
+  if (action === "qualify_for_chase") {
+    // Determine top 20 by regular season points
+    const sortedByRegular = [...players].sort((a, b) => 
+      b.regular_season_points - a.regular_season_points
+    );
 
-      const top20 = sortedByRegular.slice(0, 20);
-      const outsideTop20 = sortedByRegular.slice(20);
+    // Identify Regular Season Winner and award +15 playoff points
+    const regularSeasonWinner = sortedByRegular[0];
+    console.log(`Regular Season Winner: ${regularSeasonWinner?.user_id} with ${regularSeasonWinner?.regular_season_points} pts - awarding +15 playoff points`);
+    
+    if (regularSeasonWinner) {
+      regularSeasonWinner.playoff_points += 15;
+      
+      // Update the RS winner in database with bonus and flag
+      await supabase
+        .from("user_season_standings")
+        .update({
+          playoff_points: regularSeasonWinner.playoff_points,
+          is_regular_season_winner: true,
+        })
+        .eq("league_id", league_id)
+        .eq("user_id", regularSeasonWinner.user_id)
+        .eq("season", season);
+    }
 
-      // Sort outside top 20 by wins for wild card selection
-      const wildCardCandidates = outsideTop20
-        .filter(p => p.race_wins > 0)
-        .sort(sortPlayers);
+    const top20 = sortedByRegular.slice(0, 20);
+    const outsideTop20 = sortedByRegular.slice(20);
 
-      const wildCards = wildCardCandidates.slice(0, 3);
+    // Sort outside top 20 by wins for wild card selection
+    const wildCardCandidates = outsideTop20
+      .filter(p => p.race_wins > 0)
+      .sort(sortPlayers);
 
-      console.log(`Top 20 qualifiers: ${top20.length}, Wild cards: ${wildCards.length}`);
+    const wildCards = wildCardCandidates.slice(0, 3);
+
+    console.log(`Top 20 qualifiers: ${top20.length}, Wild cards: ${wildCards.length}`);
 
       // Update standings
       for (const player of players) {
