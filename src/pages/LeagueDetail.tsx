@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown } from 'lucide-react';
+import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface League {
@@ -33,6 +33,9 @@ interface Member {
   } | null;
   pickCount: number;
   total_points: number;
+  playoff_points: number;
+  race_wins: number;
+  stage_wins: number;
 }
 
 export default function LeagueDetail() {
@@ -85,7 +88,7 @@ export default function LeagueDetail() {
       return;
     }
 
-    // Fetch profiles and scores for each member
+    // Fetch profiles, scores, and standings for each member
     const membersWithDetails = await Promise.all(
       (membersData || []).map(async (member) => {
         const { data: profile } = await supabase
@@ -111,11 +114,23 @@ export default function LeagueDetail() {
 
         const totalPoints = scores?.reduce((sum, s) => sum + (s.points_earned || 0), 0) || 0;
 
+        // Fetch season standings (playoff points, wins, etc.)
+        const { data: standings } = await supabase
+          .from('user_season_standings')
+          .select('playoff_points, race_wins, stage_wins')
+          .eq('league_id', leagueId)
+          .eq('user_id', member.user_id)
+          .eq('season', leagueData.season)
+          .maybeSingle();
+
         return {
           ...member,
           profile,
           pickCount: pickCount || 0,
-          total_points: totalPoints
+          total_points: totalPoints,
+          playoff_points: standings?.playoff_points || 0,
+          race_wins: standings?.race_wins || 0,
+          stage_wins: standings?.stage_wins || 0
         };
       })
     );
@@ -225,7 +240,8 @@ export default function LeagueDetail() {
                     <TableRow>
                       <TableHead className="w-10 sm:w-12 pl-4 sm:pl-4">#</TableHead>
                       <TableHead>Member</TableHead>
-                      <TableHead className="text-center hidden sm:table-cell">Picks</TableHead>
+                      <TableHead className="text-center hidden sm:table-cell">Wins</TableHead>
+                      <TableHead className="text-center hidden md:table-cell">Playoff Pts</TableHead>
                       <TableHead className="text-right pr-4 sm:pr-4">Pts</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -250,7 +266,26 @@ export default function LeagueDetail() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center hidden sm:table-cell">
-                          <Badge variant="outline">{member.pickCount}</Badge>
+                          <div className="flex items-center justify-center gap-1">
+                            {member.race_wins > 0 && (
+                              <Badge variant="default" className="bg-green-600">
+                                <Flag className="h-3 w-3 mr-1" />
+                                {member.race_wins}
+                              </Badge>
+                            )}
+                            {member.stage_wins > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                <Star className="h-3 w-3 mr-1" />
+                                {member.stage_wins}
+                              </Badge>
+                            )}
+                            {member.race_wins === 0 && member.stage_wins === 0 && (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center hidden md:table-cell">
+                          <Badge variant="secondary">{member.playoff_points}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-bold pr-4 sm:pr-4">
                           {member.total_points}

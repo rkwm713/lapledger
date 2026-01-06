@@ -21,6 +21,7 @@ export type Database = {
           driver_id: number
           driver_name: string
           id: string
+          is_free_pick: boolean
           league_id: string
           locked_at: string | null
           race_date: string | null
@@ -36,6 +37,7 @@ export type Database = {
           driver_id: number
           driver_name: string
           id?: string
+          is_free_pick?: boolean
           league_id: string
           locked_at?: string | null
           race_date?: string | null
@@ -51,6 +53,7 @@ export type Database = {
           driver_id?: number
           driver_name?: string
           id?: string
+          is_free_pick?: boolean
           league_id?: string
           locked_at?: string | null
           race_date?: string | null
@@ -69,6 +72,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      free_pick_races: {
+        Row: {
+          created_at: string
+          id: string
+          league_id: string
+          race_id: number
+          race_name: string
+          season: number
+          series: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league_id: string
+          race_id: number
+          race_name: string
+          season: number
+          series?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league_id?: string
+          race_id?: number
+          race_name?: string
+          season?: number
+          series?: string
+        }
+        Relationships: []
       }
       league_members: {
         Row: {
@@ -98,6 +131,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      league_settings: {
+        Row: {
+          created_at: string
+          entry_fee: number
+          id: string
+          league_id: string
+          payment_deadline: string | null
+          payout_first: number
+          payout_fourth: number
+          payout_second: number
+          payout_third: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entry_fee?: number
+          id?: string
+          league_id: string
+          payment_deadline?: string | null
+          payout_first?: number
+          payout_fourth?: number
+          payout_second?: number
+          payout_third?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entry_fee?: number
+          id?: string
+          league_id?: string
+          payment_deadline?: string | null
+          payout_first?: number
+          payout_fourth?: number
+          payout_second?: number
+          payout_third?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       leagues: {
         Row: {
@@ -253,6 +325,66 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_season_standings: {
+        Row: {
+          created_at: string
+          elimination_round: number | null
+          id: string
+          is_eliminated: boolean
+          is_wild_card: boolean
+          league_id: string
+          playoff_points: number
+          race_wins: number
+          regular_season_points: number
+          season: number
+          stage_wins: number
+          top_10s: number
+          top_15s: number
+          top_20s: number
+          top_5s: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          elimination_round?: number | null
+          id?: string
+          is_eliminated?: boolean
+          is_wild_card?: boolean
+          league_id: string
+          playoff_points?: number
+          race_wins?: number
+          regular_season_points?: number
+          season: number
+          stage_wins?: number
+          top_10s?: number
+          top_15s?: number
+          top_20s?: number
+          top_5s?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          elimination_round?: number | null
+          id?: string
+          is_eliminated?: boolean
+          is_wild_card?: boolean
+          league_id?: string
+          playoff_points?: number
+          race_wins?: number
+          regular_season_points?: number
+          season?: number
+          stage_wins?: number
+          top_10s?: number
+          top_15s?: number
+          top_20s?: number
+          top_5s?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
