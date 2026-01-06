@@ -7,7 +7,7 @@ import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Check, X, AlertCircle, Lock, Calendar, Trophy, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, AlertCircle, Lock, Calendar, Trophy, ChevronsUpDown, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -34,12 +34,14 @@ interface Pick {
   driver_name: string;
   car_number: string | null;
   team_name: string | null;
+  is_free_pick: boolean;
 }
 
 interface RaceWithPick extends Race {
   pick?: Pick;
   isLocked: boolean;
   points?: number;
+  isFreePick: boolean;
 }
 
 export default function DriverPicks() {
@@ -53,6 +55,7 @@ export default function DriverPicks() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectingRaceId, setSelectingRaceId] = useState<number | null>(null);
+  const [freePickRaceIds, setFreePickRaceIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -67,8 +70,11 @@ export default function DriverPicks() {
   }, [user, leagueId]);
 
   // Calculate driver usage (how many times each driver has been picked)
+  // Exclude free pick races from the count
   const driverUsage = picks.reduce((acc, pick) => {
-    acc[pick.driver_id] = (acc[pick.driver_id] || 0) + 1;
+    if (!pick.is_free_pick) {
+      acc[pick.driver_id] = (acc[pick.driver_id] || 0) + 1;
+    }
     return acc;
   }, {} as Record<number, number>);
 
@@ -89,6 +95,16 @@ export default function DriverPicks() {
     }
     setLeague(leagueData);
 
+    // Fetch free pick races for this league
+    const { data: freePickData } = await supabase
+      .from('free_pick_races')
+      .select('race_id')
+      .eq('league_id', leagueId)
+      .eq('season', leagueData.season);
+    
+    const freePickIds = new Set((freePickData || []).map(fp => fp.race_id));
+    setFreePickRaceIds(freePickIds);
+
     // Fetch existing picks
     const { data: picksData } = await supabase
       .from('driver_picks')
@@ -103,7 +119,8 @@ export default function DriverPicks() {
       driver_id: p.driver_id,
       driver_name: p.driver_name,
       car_number: p.car_number,
-      team_name: p.team_name
+      team_name: p.team_name,
+      is_free_pick: p.is_free_pick || false
     }));
     setPicks(userPicks);
 
@@ -123,16 +140,27 @@ export default function DriverPicks() {
     const raceList = await getSeasonRaces(leagueData.series as SeriesType, leagueData.season.toString());
     const now = new Date();
     
+    // Helper to detect free pick races by name pattern
+    const isFreePick = (raceName: string, raceId: number): boolean => {
+      // Check if in database free_pick_races table
+      if (freePickIds.has(raceId)) return true;
+      // Also auto-detect by name pattern
+      const lowerName = raceName.toLowerCase();
+      return lowerName.includes('clash') || lowerName.includes('all-star') || lowerName.includes('all star');
+    };
+    
     const racesWithPicks: RaceWithPick[] = raceList.map(race => {
       const raceDate = race.raceDate ? new Date(race.raceDate) : null;
       const isLocked = raceDate ? now >= raceDate : false;
       const pick = userPicks.find(p => p.race_id === race.raceId);
+      const freePick = isFreePick(race.raceName, race.raceId);
       
       return {
         ...race,
         pick,
         isLocked,
-        points: scoresByRace[race.raceId]
+        points: scoresByRace[race.raceId],
+        isFreePick: freePick
       };
     });
 
@@ -176,21 +204,26 @@ export default function DriverPicks() {
       return;
     }
 
-    // Check driver usage limit (max 2 per season)
-    const currentUsage = driverUsage[driver.driver_id] || 0;
-    const existingPickForRace = picks.find(p => p.race_id === raceId);
-    
-    // If updating pick for this race with same driver, no need to check
-    if (existingPickForRace?.driver_id !== driver.driver_id && currentUsage >= 2) {
-      toast.error(`You've already used ${driver.driver_name} twice this season`);
-      return;
+    // Free pick races bypass driver usage limit
+    if (!race.isFreePick) {
+      // Check driver usage limit (max 2 per season)
+      const currentUsage = driverUsage[driver.driver_id] || 0;
+      const existingPickForRace = picks.find(p => p.race_id === raceId);
+      
+      // If updating pick for this race with same driver, no need to check
+      if (existingPickForRace?.driver_id !== driver.driver_id && currentUsage >= 2) {
+        toast.error(`You've already used ${driver.driver_name} twice this season`);
+        return;
+      }
     }
+
+    const existingPickForRace = picks.find(p => p.race_id === raceId);
 
     setSaving(true);
 
     if (existingPickForRace) {
       // Update existing pick
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('driver_picks')
         .update({
           driver_id: driver.driver_id,
@@ -200,14 +233,14 @@ export default function DriverPicks() {
         })
         .eq('id', existingPickForRace.id);
 
-      if (error) {
+      if (updateError) {
         toast.error('Failed to update pick');
         setSaving(false);
         return;
       }
     } else {
       // Create new pick
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('driver_picks')
         .insert({
           league_id: leagueId,
@@ -219,10 +252,11 @@ export default function DriverPicks() {
           driver_name: driver.driver_name,
           car_number: driver.car_number,
           team_name: driver.team_name,
-          season: league!.season
+          season: league!.season,
+          is_free_pick: race.isFreePick
         });
 
-      if (error) {
+      if (insertError) {
         toast.error('Failed to save pick');
         setSaving(false);
         return;
@@ -343,8 +377,14 @@ export default function DriverPicks() {
                 <CardContent className="py-4">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold">{race.raceName}</span>
+                        {race.isFreePick && (
+                          <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white">
+                            <Star className="h-3 w-3 mr-1" />
+                            Free Pick
+                          </Badge>
+                        )}
                         {race.isComplete && <Badge variant="outline">Complete</Badge>}
                         {race.isLocked && !race.isComplete && (
                           <Badge variant="secondary">
@@ -353,6 +393,11 @@ export default function DriverPicks() {
                           </Badge>
                         )}
                       </div>
+                      {race.isFreePick && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Pick any driver - doesn't count against your 2-per-season limit!
+                        </p>
+                      )}
                       {raceDate && (
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                           <Calendar className="h-3 w-3" />
@@ -433,7 +478,8 @@ export default function DriverPicks() {
                                 <CommandGroup>
                                   {drivers.map((driver) => {
                                     const usage = driverUsage[driver.driver_id] || 0;
-                                    const isMaxedOut = usage >= 2;
+                                    // Free pick races allow any driver regardless of usage
+                                    const isMaxedOut = !race.isFreePick && usage >= 2;
                                     const isCurrentPick = race.pick?.driver_id === driver.driver_id;
                                     
                                     return (
@@ -454,9 +500,15 @@ export default function DriverPicks() {
                                             <span className="block text-xs text-muted-foreground">{driver.team_name}</span>
                                           </div>
                                           <div className="flex items-center gap-2">
-                                            <Badge variant={isMaxedOut ? 'destructive' : 'outline'} className="text-xs">
-                                              {usage}/2
-                                            </Badge>
+                                            {race.isFreePick ? (
+                                              <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700">
+                                                Free
+                                              </Badge>
+                                            ) : (
+                                              <Badge variant={isMaxedOut ? 'destructive' : 'outline'} className="text-xs">
+                                                {usage}/2
+                                              </Badge>
+                                            )}
                                             {isCurrentPick && <Check className="h-4 w-4 text-primary" />}
                                           </div>
                                         </div>
