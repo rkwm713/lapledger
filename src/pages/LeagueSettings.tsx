@@ -397,14 +397,15 @@ export default function LeagueSettings() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="payout4" className="text-xs text-muted-foreground">4th Place</Label>
+                      <Label htmlFor="payout4" className="text-xs text-muted-foreground">4th Place (Fixed)</Label>
                       <Input
                         id="payout4"
-                        type="number"
-                        value={payoutFourth}
-                        onChange={(e) => setPayoutFourth(e.target.value)}
-                        className="mt-1"
+                        type="text"
+                        value="$200"
+                        disabled
+                        className="mt-1 bg-muted cursor-not-allowed"
                       />
+                      <p className="text-xs text-muted-foreground mt-1">4th place is always $200</p>
                     </div>
                   </div>
                 </div>
