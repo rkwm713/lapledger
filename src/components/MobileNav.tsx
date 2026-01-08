@@ -18,7 +18,7 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
 
   const links = [
-    { to: '/', label: 'Results', icon: Flag },
+    { to: '/', label: 'Schedule', icon: Flag },
     { to: '/search', label: 'Search', icon: Search },
     ...(user ? [{ to: '/leagues', label: 'My Leagues', icon: Trophy }] : []),
   ];
@@ -71,6 +71,14 @@ export function MobileNav() {
                 <User className="h-4 w-4" />
                 <span className="truncate">{user.email}</span>
               </div>
+              <Link
+                to="/profile"
+                onClick={handleLinkClick}
+                className="flex items-center gap-3 px-4 py-3 text-base font-medium rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+              >
+                <User className="h-5 w-5" />
+                My Profile
+              </Link>
               <Button 
                 variant="outline" 
                 className="w-full justify-start gap-3" 

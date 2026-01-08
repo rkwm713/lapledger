@@ -16,10 +16,12 @@ import { PaymentInfoCard } from '@/components/PaymentInfoCard';
 import { TiebreakerTooltip } from '@/components/TiebreakerTooltip';
 import { TiebreakerBadge } from '@/components/TiebreakerBadge';
 import { TiebreakerLegend } from '@/components/TiebreakerLegend';
+import { RulesLegend } from '@/components/RulesLegend';
 import { sortByTiebreakers, getTiebreakerLevel, wasDecidedByTiebreaker, TiebreakerLevel } from '@/lib/tiebreakers';
 import { toast } from 'sonner';
 import { ChaseStatusCard } from '@/components/ChaseStatusCard';
-import { ChaseRound, CHASE_ROUND_REMAINING } from '@/lib/chase-types';
+import { ChaseRound } from '@/lib/chase-types';
+import { getPlayersRemainingForRound } from '@/lib/chase-utils';
 
 interface League {
   id: string;
@@ -226,14 +228,9 @@ export default function LeagueDetail() {
         } else if (userStandings.is_eliminated) {
           setUserChaseStatus('eliminated');
         } else {
-          // Find user's position to determine safe/at-risk
-          const userPoints = userStandings.playoff_points || 0;
-          const activeCount = membersWithDetails.filter(m => {
-            const idx = membersWithDetails.indexOf(m);
-            return idx < (CHASE_ROUND_REMAINING[chaseRound.round_number] || 23);
-          }).length;
+          // Find user's position to determine safe/at-risk using dynamic cutoff
           const userPos = membersWithDetails.findIndex(m => m.user_id === user.id) + 1;
-          const cutoff = CHASE_ROUND_REMAINING[chaseRound.round_number] || 23;
+          const cutoff = getPlayersRemainingForRound(chaseRound.round_number, membersWithDetails.length);
           
           if (userPos <= cutoff - 2) {
             setUserChaseStatus('safe');
@@ -313,31 +310,33 @@ export default function LeagueDetail() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto">
-                  <Users className="h-4 w-4 mr-2" />
-                  Invite
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="mx-4 sm:mx-0">
-                <DialogHeader>
-                  <DialogTitle>Invite Friends</DialogTitle>
-                  <DialogDescription>
-                    Share this code with friends to let them join your league
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="mt-4">
-                  <Label>Invite Code</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Input value={league.invite_code} readOnly className="font-mono text-lg" />
-                    <Button onClick={copyInviteCode} variant="outline" size="icon">
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
+            {isOwner && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    <Users className="h-4 w-4 mr-2" />
+                    Invite
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="mx-4 sm:mx-0">
+                  <DialogHeader>
+                    <DialogTitle>Invite Friends</DialogTitle>
+                    <DialogDescription>
+                      Share this code with friends to let them join your league
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <Label>Invite Code</Label>
+                    <div className="flex gap-2 mt-2">
+                      <Input value={league.invite_code} readOnly className="font-mono text-lg" />
+                      <Button onClick={copyInviteCode} variant="outline" size="icon">
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            )}
 
             <Button onClick={() => navigate(`/leagues/${leagueId}/picks`)} className="w-full sm:w-auto">
               Manage Picks
@@ -379,7 +378,7 @@ export default function LeagueDetail() {
           <div className="mb-6">
             <ChaseStatusCard
               currentRound={currentChaseRound}
-              playersRemaining={CHASE_ROUND_REMAINING[currentChaseRound.round_number] || 23}
+              playersRemaining={getPlayersRemainingForRound(currentChaseRound.round_number, members.length)}
               userStatus={userChaseStatus}
             />
           </div>
@@ -388,12 +387,15 @@ export default function LeagueDetail() {
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2 overflow-hidden">
             <CardHeader className="pb-3 sm:pb-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <CardTitle className="text-lg sm:text-xl">Standings</CardTitle>
                   <CardDescription>Current season rankings</CardDescription>
                 </div>
-                <TiebreakerLegend />
+                <div className="flex items-center gap-2">
+                  <RulesLegend />
+                  <TiebreakerLegend />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0 sm:p-6 sm:pt-0">
@@ -526,10 +528,12 @@ export default function LeagueDetail() {
                   <Label className="text-muted-foreground">Series</Label>
                   <p className="font-semibold">{seriesLabels[league.series]}</p>
                 </div>
-                <div>
-                  <Label className="text-muted-foreground">Invite Code</Label>
-                  <p className="font-mono font-semibold">{league.invite_code}</p>
-                </div>
+                {isOwner && (
+                  <div>
+                    <Label className="text-muted-foreground">Invite Code</Label>
+                    <p className="font-mono font-semibold">{league.invite_code}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

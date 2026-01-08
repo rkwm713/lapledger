@@ -18,7 +18,7 @@ export function Navigation() {
   const { user, signOut } = useAuth();
 
   const links = [
-    { to: '/', label: 'Results', icon: Flag },
+    { to: '/', label: 'Schedule', icon: Flag },
     { to: '/search', label: 'Search', icon: Search },
     ...(user ? [{ to: '/leagues', label: 'My Leagues', icon: Trophy }] : []),
   ];
@@ -78,6 +78,12 @@ export function Navigation() {
                     {user.email}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href="/profile">
+                      <User className="h-4 w-4 mr-2" />
+                      My Profile
+                    </a>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
