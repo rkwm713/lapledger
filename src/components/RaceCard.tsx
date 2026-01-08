@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Trophy, Medal, Tv } from "lucide-react";
+import { Calendar, MapPin, Trophy, Medal, Tv, Star, CloudRain } from "lucide-react";
 import type { Race, SeriesType } from "@/lib/types";
 
 interface RaceCardProps {
@@ -49,11 +49,25 @@ export function RaceCard({ race, series, season }: RaceCardProps) {
           <div className="space-y-2 flex-1">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-semibold text-base sm:text-lg leading-tight">{race.raceName}</h3>
-              {race.isComplete && (
-                <Badge variant="default" className="text-xs bg-success hover:bg-success/90 shrink-0">
-                  Complete
-                </Badge>
-              )}
+              <div className="flex gap-1.5 shrink-0">
+                {race.isFreePick && (
+                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                    <Star className="h-3 w-3 mr-1" />
+                    Free Pick
+                  </Badge>
+                )}
+                {race.isDelayed && (
+                  <Badge variant="outline" className="text-xs border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950/30">
+                    <CloudRain className="h-3 w-3 mr-1" />
+                    {race.delayReason || 'Delayed'}
+                  </Badge>
+                )}
+                {race.isComplete && (
+                  <Badge variant="default" className="text-xs bg-success hover:bg-success/90">
+                    Complete
+                  </Badge>
+                )}
+              </div>
             </div>
             
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-muted-foreground">

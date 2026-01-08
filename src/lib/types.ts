@@ -19,6 +19,9 @@ export interface Race {
   isComplete: boolean;
   televisionBroadcaster?: string;
   radioBroadcaster?: string;
+  isFreePick?: boolean;
+  isDelayed?: boolean;
+  delayReason?: string;
 }
 
 export interface RaceResult {

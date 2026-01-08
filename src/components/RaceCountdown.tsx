@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, MapPin, Tv } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Clock, MapPin, Tv, CloudRain } from "lucide-react";
 
 interface RaceCountdownProps {
   raceDate: string;
   raceName: string;
   trackName: string;
   televisionBroadcaster?: string;
+  isDelayed?: boolean;
+  delayReason?: string;
 }
 
 interface TimeLeft {
@@ -33,7 +36,7 @@ function calculateTimeLeft(raceDate: string): TimeLeft {
   };
 }
 
-export function RaceCountdown({ raceDate, raceName, trackName, televisionBroadcaster }: RaceCountdownProps) {
+export function RaceCountdown({ raceDate, raceName, trackName, televisionBroadcaster, isDelayed, delayReason }: RaceCountdownProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft(raceDate));
 
   useEffect(() => {
@@ -53,6 +56,23 @@ export function RaceCountdown({ raceDate, raceName, trackName, televisionBroadca
     minute: '2-digit',
     timeZoneName: 'short',
   });
+
+  // Show delay banner if race is delayed
+  if (isDelayed) {
+    return (
+      <Card className="bg-blue-600 text-white overflow-hidden">
+        <div className="h-1 nascar-stripe" />
+        <CardContent className="p-4 sm:p-6 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CloudRain className="h-5 w-5" />
+            <span className="text-base sm:text-lg font-semibold">{delayReason || 'Race Delayed'}</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold">{raceName}</h2>
+          <p className="text-sm mt-2 text-blue-100">Check back for updated start time</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (timeLeft.total <= 0) {
     return (

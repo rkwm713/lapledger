@@ -6,7 +6,7 @@ interface PayoutCardProps {
   payoutFirst: number;
   payoutSecond: number;
   payoutThird: number;
-  payoutFourth: number;
+  payoutFourth?: number; // Always $200, optional to pass
   membersPaid?: number;
   totalMembers?: number;
 }
@@ -29,13 +29,15 @@ export function PayoutCard({
     }).format(amount);
   };
 
-  const totalPrizePool = payoutFirst + payoutSecond + payoutThird + payoutFourth;
+  // 4th place is always fixed at $200
+  const fourthPlacePayout = 200;
+  const totalPrizePool = payoutFirst + payoutSecond + payoutThird + fourthPlacePayout;
 
   const payouts = [
     { place: '1st', amount: payoutFirst, icon: Trophy, color: 'text-yellow-500' },
     { place: '2nd', amount: payoutSecond, icon: Medal, color: 'text-gray-400' },
     { place: '3rd', amount: payoutThird, icon: Medal, color: 'text-amber-600' },
-    { place: '4th', amount: payoutFourth, icon: Medal, color: 'text-muted-foreground' }
+    { place: '4th', amount: fourthPlacePayout, icon: Medal, color: 'text-muted-foreground' }
   ];
 
   return (

@@ -29,6 +29,31 @@ function extractWinnerFromComments(comments: unknown): string | undefined {
   return match?.[1];
 }
 
+// Check if race is a free pick race (Clash or All-Star)
+function isFreePick(raceName: string): boolean {
+  const name = raceName.toLowerCase();
+  return name.includes('clash') || name.includes('all-star') || name.includes('allstar');
+}
+
+// Check if race is delayed (from race status or comments)
+function checkDelayStatus(raw: Record<string, unknown>): { isDelayed: boolean; delayReason?: string } {
+  const status = String(raw.race_status || '').toLowerCase();
+  const comments = String(raw.race_comments || '').toLowerCase();
+  
+  // Check for delay indicators
+  if (status.includes('delay') || status.includes('postpone')) {
+    return { isDelayed: true, delayReason: 'Weather Delay' };
+  }
+  if (comments.includes('delay') || comments.includes('rain') || comments.includes('weather')) {
+    return { isDelayed: true, delayReason: 'Weather Delay' };
+  }
+  if (comments.includes('postpone')) {
+    return { isDelayed: true, delayReason: 'Postponed' };
+  }
+  
+  return { isDelayed: false };
+}
+
 // Transform raw API race data to our Race type (from race_list_basic.json)
 function transformRace(raw: Record<string, unknown>): Race {
   // A race is complete if it has completed laps AND a winner
@@ -39,9 +64,13 @@ function transformRace(raw: Record<string, unknown>): Race {
   // Try to extract winner from race_comments
   const winner = extractWinnerFromComments(raw.race_comments);
   
+  // Check for free pick and delay status
+  const raceName = String(raw.race_name || 'Unknown Race');
+  const delayStatus = checkDelayStatus(raw);
+  
   return {
     raceId: Number(raw.race_id || 0),
-    raceName: String(raw.race_name || 'Unknown Race'),
+    raceName,
     trackName: String(raw.track_name || 'Unknown Track'),
     raceDate: String(raw.race_date || ''),
     winner,
@@ -49,6 +78,9 @@ function transformRace(raw: Record<string, unknown>): Race {
     isComplete,
     televisionBroadcaster: raw.television_broadcaster ? String(raw.television_broadcaster) : undefined,
     radioBroadcaster: raw.radio_broadcaster ? String(raw.radio_broadcaster) : undefined,
+    isFreePick: isFreePick(raceName),
+    isDelayed: delayStatus.isDelayed,
+    delayReason: delayStatus.delayReason,
   };
 }
 

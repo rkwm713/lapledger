@@ -69,6 +69,8 @@ const Index = () => {
                   raceName={nextRace.raceName}
                   trackName={nextRace.trackName}
                   televisionBroadcaster={nextRace.televisionBroadcaster}
+                  isDelayed={nextRace.isDelayed}
+                  delayReason={nextRace.delayReason}
                 />
               )}
               {upcomingRaces.length === 0 ? (
