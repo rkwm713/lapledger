@@ -18,7 +18,8 @@ import { TiebreakerTooltip } from "@/components/TiebreakerTooltip";
 import { TiebreakerBadge } from "@/components/TiebreakerBadge";
 import { TiebreakerLegend } from "@/components/TiebreakerLegend";
 import { sortByTiebreakers, getTiebreakerLevel, wasDecidedByTiebreaker, TiebreakerLevel } from "@/lib/tiebreakers";
-import { ChasePlayer, ChaseRound, CHASE_ROUND_NAMES, CHASE_ROUND_REMAINING } from "@/lib/chase-types";
+import { ChasePlayer, ChaseRound, CHASE_ROUND_NAMES } from "@/lib/chase-types";
+import { getPlayersRemainingForRound } from "@/lib/chase-utils";
 import { cn } from "@/lib/utils";
 
 interface League {
@@ -172,7 +173,8 @@ export default function ChaseStandings() {
   const getPlayerStatus = (player: ChasePlayer, position: number): 'safe' | 'at-risk' | 'eliminated' | 'advancing' => {
     if (player.is_eliminated) return 'eliminated';
     const roundNum = currentRound?.round_number || 0;
-    const cutoff = CHASE_ROUND_REMAINING[roundNum] || 23;
+    const totalPlayers = players.length;
+    const cutoff = getPlayersRemainingForRound(roundNum, totalPlayers);
     if (position <= cutoff - 2) return 'safe';
     if (position <= cutoff) return 'at-risk';
     return 'eliminated';
@@ -208,7 +210,8 @@ export default function ChaseStandings() {
   }
 
   const roundNum = currentRound?.round_number || 0;
-  const playersRemaining = CHASE_ROUND_REMAINING[roundNum] || 23;
+  const totalMembers = players.length;
+  const playersRemaining = getPlayersRemainingForRound(roundNum, totalMembers);
 
   return (
     <div className="min-h-screen bg-background">

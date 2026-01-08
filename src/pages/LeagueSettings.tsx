@@ -55,12 +55,12 @@ export default function LeagueSettings() {
   const [completedRaces, setCompletedRaces] = useState<{ race_id: number; race_name: string; race_date: string }[]>([]);
   const [selectedRaceId, setSelectedRaceId] = useState<string>('');
   
-  // Form state
-  const [entryFee, setEntryFee] = useState('100');
+  // Form state - default to blank
+  const [entryFee, setEntryFee] = useState('');
   const [paymentDeadline, setPaymentDeadline] = useState('');
-  const [payoutFirst, setPayoutFirst] = useState('2200');
-  const [payoutSecond, setPayoutSecond] = useState('800');
-  const [payoutThird, setPayoutThird] = useState('400');
+  const [payoutFirst, setPayoutFirst] = useState('');
+  const [payoutSecond, setPayoutSecond] = useState('');
+  const [payoutThird, setPayoutThird] = useState('');
   const [payoutFourth, setPayoutFourth] = useState('200');
   const [paymentPaypal, setPaymentPaypal] = useState('');
   const [paymentVenmo, setPaymentVenmo] = useState('');
@@ -204,12 +204,12 @@ export default function LeagueSettings() {
 
     const settingsData = {
       league_id: leagueId,
-      entry_fee: parseFloat(entryFee) || 100,
+      entry_fee: parseFloat(entryFee) || 0,
       payment_deadline: paymentDeadline || null,
-      payout_first: parseInt(payoutFirst) || 2200,
-      payout_second: parseInt(payoutSecond) || 800,
-      payout_third: parseInt(payoutThird) || 400,
-      payout_fourth: parseInt(payoutFourth) || 200,
+      payout_first: parseInt(payoutFirst) || 0,
+      payout_second: parseInt(payoutSecond) || 0,
+      payout_third: parseInt(payoutThird) || 0,
+      payout_fourth: 200, // Fixed at $200
       payment_paypal: paymentPaypal || null,
       payment_venmo: paymentVenmo || null,
       payment_instructions: paymentInstructions || null,
