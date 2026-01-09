@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings, Info, History, Sparkles } from 'lucide-react';
+import { Trophy, Users, Copy, Check, ArrowLeft, Loader2, Crown, Flag, Star, Award, Settings, Info, History, Sparkles, Shield } from 'lucide-react';
 import { PayoutCard } from '@/components/PayoutCard';
 import { PaymentInfoCard } from '@/components/PaymentInfoCard';
 import { TiebreakerTooltip } from '@/components/TiebreakerTooltip';
@@ -50,6 +50,7 @@ interface Member {
   top_10s: number;
   top_15s: number;
   top_20s: number;
+  isAdmin: boolean;
 }
 
 export default function LeagueDetail() {
@@ -76,6 +77,7 @@ export default function LeagueDetail() {
   const [paidMembersCount, setPaidMembersCount] = useState(0);
   const [userPaymentStatus, setUserPaymentStatus] = useState<'pending' | 'paid' | 'overdue' | undefined>(undefined);
   const [regularSeasonWinnerId, setRegularSeasonWinnerId] = useState<string | null>(null);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -106,10 +108,10 @@ export default function LeagueDetail() {
     }
     setLeague(leagueData);
 
-    // Fetch members with profiles and payment status
+    // Fetch members with profiles, payment status, and admin status
     const { data: membersData, error: membersError } = await supabase
       .from('league_members')
-      .select('id, user_id, joined_at, payment_status')
+      .select('id, user_id, joined_at, payment_status, is_admin')
       .eq('league_id', leagueId);
 
     // Fetch league settings
@@ -123,7 +125,7 @@ export default function LeagueDetail() {
       setLeagueSettings(settingsData);
     }
 
-    // Get user's payment status
+    // Get user's payment status and admin status
     const userMember = membersData?.find(m => m.user_id === user?.id);
     if (userMember) {
       let status = userMember.payment_status as 'pending' | 'paid' | 'overdue';
@@ -134,6 +136,7 @@ export default function LeagueDetail() {
         }
       }
       setUserPaymentStatus(status);
+      setIsUserAdmin(userMember.is_admin || false);
     }
 
     if (membersError) {
@@ -193,7 +196,8 @@ export default function LeagueDetail() {
           top_5s: standings?.top_5s || 0,
           top_10s: standings?.top_10s || 0,
           top_15s: standings?.top_15s || 0,
-          top_20s: standings?.top_20s || 0
+          top_20s: standings?.top_20s || 0,
+          isAdmin: member.is_admin || false
         };
       })
     );
@@ -285,6 +289,7 @@ export default function LeagueDetail() {
   if (!league) return null;
 
   const isOwner = league.owner_id === user?.id;
+  const canManageLeague = isOwner || isUserAdmin;
 
   return (
     <div className="min-h-screen bg-background">
@@ -310,7 +315,7 @@ export default function LeagueDetail() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {isOwner && (
+            {canManageLeague && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="w-full sm:w-auto">
@@ -360,7 +365,7 @@ export default function LeagueDetail() {
               Chase Bracket
             </Button>
 
-            {isOwner && (
+            {canManageLeague && (
               <Button 
                 variant="outline" 
                 onClick={() => navigate(`/leagues/${leagueId}/settings`)} 
@@ -441,6 +446,11 @@ export default function LeagueDetail() {
                               {member.user_id === league.owner_id && (
                                 <span title="League Owner">
                                   <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 flex-shrink-0" />
+                                </span>
+                              )}
+                              {member.isAdmin && member.user_id !== league.owner_id && (
+                                <span title="League Admin">
+                                  <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
                                 </span>
                               )}
                               {member.user_id === regularSeasonWinnerId && (

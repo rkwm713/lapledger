@@ -200,6 +200,7 @@ export type Database = {
       league_members: {
         Row: {
           id: string
+          is_admin: boolean
           joined_at: string
           league_id: string
           payment_date: string | null
@@ -209,6 +210,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          is_admin?: boolean
           joined_at?: string
           league_id: string
           payment_date?: string | null
@@ -218,6 +220,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          is_admin?: boolean
           joined_at?: string
           league_id?: string
           payment_date?: string | null
@@ -509,11 +512,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_league: {
+        Args: { _league_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_league_admin: {
+        Args: { _league_id: string; _user_id: string }
         Returns: boolean
       }
       is_league_member: {

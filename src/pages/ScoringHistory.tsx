@@ -42,6 +42,7 @@ export default function ScoringHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [members, setMembers] = useState<{ user_id: string; display_name: string }[]>([]);
+  const [canManageLeague, setCanManageLeague] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -71,6 +72,18 @@ export default function ScoringHistory() {
       return;
     }
     setLeague(leagueData);
+
+    // Check if user can manage league (owner or admin)
+    const { data: memberData } = await supabase
+      .from('league_members')
+      .select('is_admin')
+      .eq('league_id', leagueId)
+      .eq('user_id', user?.id)
+      .maybeSingle();
+
+    const isOwner = leagueData.owner_id === user?.id;
+    const isAdmin = memberData?.is_admin === true;
+    setCanManageLeague(isOwner || isAdmin);
 
     // Fetch members for filter dropdown
     const { data: membersData } = await supabase
@@ -185,7 +198,6 @@ export default function ScoringHistory() {
 
   const totalPoints = raceScores.reduce((sum, r) => sum + r.points_earned, 0);
   const totalWins = raceScores.filter(r => r.is_race_win).length;
-  const isOwner = league?.owner_id === user?.id;
 
   if (authLoading || loading) {
     return (
@@ -216,7 +228,7 @@ export default function ScoringHistory() {
             <p className="text-muted-foreground">{league?.name} • {league?.season}</p>
           </div>
 
-          {isOwner && members.length > 0 && (
+          {canManageLeague && members.length > 0 && (
             <select
               value={selectedMember || ''}
               onChange={(e) => setSelectedMember(e.target.value)}
