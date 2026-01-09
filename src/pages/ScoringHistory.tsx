@@ -124,9 +124,12 @@ export default function ScoringHistory() {
     );
     setMembers(memberProfiles);
 
-    // For DEMO league visitors without a user, auto-select the first member
-    // For logged-in users, select themselves
-    const defaultMember = user?.id || (isDemoLeague && memberProfiles.length > 0 ? memberProfiles[0].user_id : null);
+    // For DEMO league or when user is not a member, auto-select the first member
+    // For logged-in users who ARE members of this league, select themselves
+    const isUserAMember = memberProfiles.some(m => m.user_id === user?.id);
+    const defaultMember = (user && isUserAMember) 
+      ? user.id 
+      : (memberProfiles.length > 0 ? memberProfiles[0].user_id : null);
     setSelectedMember(defaultMember);
     
     await fetchScoresForMember(defaultMember, leagueData);

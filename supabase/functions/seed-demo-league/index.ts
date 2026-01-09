@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
             
             const results: RaceResult[] = raceResults.map((r: any) => ({
               driver_id: r.driver_id,
-              driver_name: `${r.driver_firstname} ${r.driver_lastname}`.trim() || r.driver_fullname,
+              driver_name: r.driver_fullname || `${r.driver_firstname || ''} ${r.driver_lastname || ''}`.trim() || 'Unknown Driver',
               finishing_position: r.finishing_position,
               team_name: r.team_name,
               car_number: r.car_number?.toString()
