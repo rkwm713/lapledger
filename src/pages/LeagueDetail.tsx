@@ -78,18 +78,35 @@ export default function LeagueDetail() {
   const [userPaymentStatus, setUserPaymentStatus] = useState<'pending' | 'paid' | 'overdue' | undefined>(undefined);
   const [regularSeasonWinnerId, setRegularSeasonWinnerId] = useState<string | null>(null);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [isDemoLeague, setIsDemoLeague] = useState<boolean | null>(null);
 
+  // Check if this is the DEMO league first
   useEffect(() => {
-    if (!authLoading && !user) {
+    async function checkIfDemoLeague() {
+      if (!leagueId) return;
+      const { data } = await supabase
+        .from('leagues')
+        .select('name')
+        .eq('id', leagueId)
+        .maybeSingle();
+      setIsDemoLeague(data?.name === 'DEMO');
+    }
+    checkIfDemoLeague();
+  }, [leagueId]);
+
+  // Only redirect to auth if NOT demo league
+  useEffect(() => {
+    if (isDemoLeague === false && !authLoading && !user) {
       navigate('/auth');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isDemoLeague]);
 
+  // Fetch data when user exists OR when it's the demo league
   useEffect(() => {
-    if (user && leagueId) {
+    if (leagueId && isDemoLeague !== null && (user || isDemoLeague)) {
       fetchLeagueDetails();
     }
-  }, [user, leagueId]);
+  }, [user, leagueId, isDemoLeague]);
 
   async function fetchLeagueDetails() {
     setLoading(true);
