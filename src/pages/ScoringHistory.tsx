@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ interface RaceScore {
   race_date: string;
   driver_id: number | null;
   driver_name: string | null;
+  displayDriverName: string; // Computed display name with fallback
   points_earned: number;
   finishing_position: number | null;
   is_race_win: boolean;
@@ -44,6 +45,7 @@ export default function ScoringHistory() {
   const [members, setMembers] = useState<{ user_id: string; display_name: string }[]>([]);
   const [canManageLeague, setCanManageLeague] = useState(false);
   const [isDemoLeague, setIsDemoLeague] = useState<boolean | null>(null);
+  const [driverDirectory, setDriverDirectory] = useState<Record<number, string>>({});
 
   // Check if this is the DEMO league first
   useEffect(() => {
@@ -89,6 +91,24 @@ export default function ScoringHistory() {
       return;
     }
     setLeague(leagueData);
+
+    // Fetch driver directory for fallback names
+    try {
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nascar-proxy?action=driverlist&season=${leagueData.season}&series=${leagueData.series}`;
+      const driverRes = await fetch(proxyUrl);
+      if (driverRes.ok) {
+        const drivers = await driverRes.json();
+        const dir: Record<number, string> = {};
+        for (const d of drivers || []) {
+          if (d.driver_id && d.full_name) {
+            dir[d.driver_id] = d.full_name;
+          }
+        }
+        setDriverDirectory(dir);
+      }
+    } catch (e) {
+      console.warn('Could not fetch driver directory:', e);
+    }
 
     // Check if user can manage league (owner or admin)
     let canManage = false;
@@ -136,6 +156,13 @@ export default function ScoringHistory() {
 
     setLoading(false);
   }
+
+  // Helper to check if a driver name is invalid
+  const isInvalidName = (name: string | null | undefined): boolean => {
+    if (!name) return true;
+    const lower = name.toLowerCase().trim();
+    return lower === '' || lower.startsWith('undefined') || lower === 'unknown' || lower === 'unknown driver';
+  };
 
   async function fetchScoresForMember(memberId: string | null, leagueData: League) {
     if (!memberId || !leagueData) return;
@@ -196,12 +223,22 @@ export default function ScoringHistory() {
       const position = positionMap.get(`${score.race_id}-${score.driver_id}`) || null;
       const pickedByKey = `${score.race_id}-${score.driver_id}`;
       
+      // Compute display name with fallback to driver directory
+      let displayDriverName = score.driver_name || '';
+      if (isInvalidName(displayDriverName) && score.driver_id && driverDirectory[score.driver_id]) {
+        displayDriverName = driverDirectory[score.driver_id];
+      }
+      if (isInvalidName(displayDriverName)) {
+        displayDriverName = score.driver_id ? `Driver #${score.driver_id}` : 'No pick';
+      }
+      
       return {
         race_id: score.race_id,
         race_name: race?.race_name || `Race ${score.race_id}`,
         race_date: race?.race_date || '',
         driver_id: score.driver_id,
         driver_name: score.driver_name,
+        displayDriverName,
         points_earned: score.points_earned || 0,
         finishing_position: position,
         is_race_win: position === 1,
@@ -335,7 +372,7 @@ export default function ScoringHistory() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {race.driver_name || <span className="text-muted-foreground">No pick</span>}
+                          {race.displayDriverName || <span className="text-muted-foreground">No pick</span>}
                         </TableCell>
                         <TableCell className="text-center">
                           {race.finishing_position ? (
