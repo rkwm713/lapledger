@@ -10,7 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save, CreditCard, RefreshCw, Calendar } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, ArrowLeft, Settings, DollarSign, Users, Save, CreditCard, RefreshCw, Calendar, Crown, Shield } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { MemberPaymentRow } from '@/components/MemberPaymentRow';
 import { PayoutCard } from '@/components/PayoutCard';
@@ -36,6 +38,7 @@ interface Member {
   payment_status: 'pending' | 'paid' | 'overdue';
   payment_date: string | null;
   isOwner: boolean;
+  isAdmin: boolean;
 }
 
 export default function LeagueSettings() {
@@ -50,6 +53,7 @@ export default function LeagueSettings() {
   const [leagueSeason, setLeagueSeason] = useState<number>(new Date().getFullYear());
   const [leagueSeries, setLeagueSeries] = useState<string>('cup');
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [isCurrentUserOwner, setIsCurrentUserOwner] = useState(false);
   const [settings, setSettings] = useState<LeagueSettings | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [completedRaces, setCompletedRaces] = useState<{ race_id: number; race_name: string; race_date: string }[]>([]);
@@ -94,15 +98,26 @@ export default function LeagueSettings() {
       return;
     }
 
-    // Check ownership
-    if (league.owner_id !== user?.id) {
-      toast.error('Only the league owner can access settings');
+    // Check ownership or admin status
+    const { data: memberData } = await supabase
+      .from('league_members')
+      .select('is_admin')
+      .eq('league_id', leagueId)
+      .eq('user_id', user?.id)
+      .maybeSingle();
+
+    const isOwner = league.owner_id === user?.id;
+    const isAdmin = memberData?.is_admin === true;
+
+    if (!isOwner && !isAdmin) {
+      toast.error('Only league owners and admins can access settings');
       navigate(`/leagues/${leagueId}`);
       return;
     }
 
     setLeagueName(league.name);
     setOwnerId(league.owner_id);
+    setIsCurrentUserOwner(isOwner);
     setLeagueSeason(league.season);
     setLeagueSeries(league.series);
 
@@ -149,10 +164,10 @@ export default function LeagueSettings() {
       setPaymentInstructions(settingsData.payment_instructions || '');
     }
 
-    // Fetch members with payment status
+    // Fetch members with payment status and admin status
     const { data: membersData } = await supabase
       .from('league_members')
-      .select('id, user_id, payment_status, payment_date')
+      .select('id, user_id, payment_status, payment_date, is_admin')
       .eq('league_id', leagueId);
 
     if (membersData) {
@@ -179,15 +194,18 @@ export default function LeagueSettings() {
             display_name: profile?.display_name || 'Unknown',
             payment_status: status,
             payment_date: member.payment_date,
-            isOwner: member.user_id === league.owner_id
+            isOwner: member.user_id === league.owner_id,
+            isAdmin: member.is_admin || false
           };
         })
       );
 
-      // Sort: owners first, then by name
+      // Sort: owners first, then admins, then by name
       membersWithProfiles.sort((a, b) => {
         if (a.isOwner && !b.isOwner) return -1;
         if (!a.isOwner && b.isOwner) return 1;
+        if (a.isAdmin && !b.isAdmin) return -1;
+        if (!a.isAdmin && b.isAdmin) return 1;
         return a.display_name.localeCompare(b.display_name);
       });
 
@@ -263,6 +281,23 @@ export default function LeagueSettings() {
     }
 
     toast.success(`Payment marked as ${newStatus}`);
+    fetchData();
+  }
+
+  async function handleToggleAdmin(memberId: string, currentIsAdmin: boolean) {
+    const newIsAdmin = !currentIsAdmin;
+
+    const { error } = await supabase
+      .from('league_members')
+      .update({ is_admin: newIsAdmin })
+      .eq('id', memberId);
+
+    if (error) {
+      toast.error('Failed to update admin status');
+      return;
+    }
+
+    toast.success(newIsAdmin ? 'Member promoted to Admin' : 'Admin demoted to Member');
     fetchData();
   }
 
@@ -516,6 +551,70 @@ export default function LeagueSettings() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Member Roles - Only visible to owner */}
+            {isCurrentUserOwner && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Member Roles
+                  </CardTitle>
+                  <CardDescription>
+                    Admins can manage settings and payments, but cannot delete the league or change roles
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0 sm:p-6 sm:pt-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Member</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead className="text-right">Admin</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {members.map((member) => (
+                          <TableRow key={member.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{member.display_name}</span>
+                                {member.isOwner && (
+                                  <Crown className="h-4 w-4 text-yellow-500" />
+                                )}
+                                {member.isAdmin && !member.isOwner && (
+                                  <Shield className="h-4 w-4 text-blue-500" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {member.isOwner ? (
+                                <Badge variant="default" className="bg-yellow-500">Owner</Badge>
+                              ) : member.isAdmin ? (
+                                <Badge variant="secondary" className="bg-blue-500 text-white">Admin</Badge>
+                              ) : (
+                                <Badge variant="outline">Member</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {member.isOwner ? (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              ) : (
+                                <Switch
+                                  checked={member.isAdmin}
+                                  onCheckedChange={() => handleToggleAdmin(member.id, member.isAdmin)}
+                                />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Race Management - Recalculate Scores */}
             <Card>
