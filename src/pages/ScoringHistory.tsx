@@ -43,18 +43,35 @@ export default function ScoringHistory() {
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [members, setMembers] = useState<{ user_id: string; display_name: string }[]>([]);
   const [canManageLeague, setCanManageLeague] = useState(false);
+  const [isDemoLeague, setIsDemoLeague] = useState<boolean | null>(null);
 
+  // Check if this is the DEMO league first
   useEffect(() => {
-    if (!authLoading && !user) {
+    async function checkIfDemoLeague() {
+      if (!leagueId) return;
+      const { data } = await supabase
+        .from('leagues')
+        .select('name')
+        .eq('id', leagueId)
+        .maybeSingle();
+      setIsDemoLeague(data?.name === 'DEMO');
+    }
+    checkIfDemoLeague();
+  }, [leagueId]);
+
+  // Only redirect to auth if NOT demo league
+  useEffect(() => {
+    if (isDemoLeague === false && !authLoading && !user) {
       navigate('/auth');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, isDemoLeague]);
 
+  // Fetch data when user exists OR when it's the demo league
   useEffect(() => {
-    if (user && leagueId) {
+    if (leagueId && isDemoLeague !== null && (user || isDemoLeague)) {
       fetchData();
     }
-  }, [user, leagueId]);
+  }, [user, leagueId, isDemoLeague]);
 
   async function fetchData() {
     setLoading(true);
@@ -74,16 +91,20 @@ export default function ScoringHistory() {
     setLeague(leagueData);
 
     // Check if user can manage league (owner or admin)
-    const { data: memberData } = await supabase
-      .from('league_members')
-      .select('is_admin')
-      .eq('league_id', leagueId)
-      .eq('user_id', user?.id)
-      .maybeSingle();
+    let canManage = false;
+    if (user) {
+      const { data: memberData } = await supabase
+        .from('league_members')
+        .select('is_admin')
+        .eq('league_id', leagueId)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    const isOwner = leagueData.owner_id === user?.id;
-    const isAdmin = memberData?.is_admin === true;
-    setCanManageLeague(isOwner || isAdmin);
+      const isOwner = leagueData.owner_id === user.id;
+      const isAdmin = memberData?.is_admin === true;
+      canManage = isOwner || isAdmin;
+    }
+    setCanManageLeague(canManage);
 
     // Fetch members for filter dropdown
     const { data: membersData } = await supabase
@@ -103,10 +124,12 @@ export default function ScoringHistory() {
     );
     setMembers(memberProfiles);
 
-    // Set default to current user
-    setSelectedMember(user?.id || null);
+    // For DEMO league visitors without a user, auto-select the first member
+    // For logged-in users, select themselves
+    const defaultMember = user?.id || (isDemoLeague && memberProfiles.length > 0 ? memberProfiles[0].user_id : null);
+    setSelectedMember(defaultMember);
     
-    await fetchScoresForMember(user?.id || null, leagueData);
+    await fetchScoresForMember(defaultMember, leagueData);
 
     setLoading(false);
   }
@@ -228,7 +251,7 @@ export default function ScoringHistory() {
             <p className="text-muted-foreground">{league?.name} • {league?.season}</p>
           </div>
 
-          {canManageLeague && members.length > 0 && (
+          {(canManageLeague || isDemoLeague) && members.length > 0 && (
             <select
               value={selectedMember || ''}
               onChange={(e) => setSelectedMember(e.target.value)}
