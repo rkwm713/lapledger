@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.calculate-chase-elimination]
 verify_jwt = false
+
+[functions.seed-demo-league]
+verify_jwt = false
+
+[functions.fix-demo-standings]
+verify_jwt = false
